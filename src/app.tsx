@@ -19,6 +19,7 @@ import {useMouseClick} from './lib/use-mouse-click.js'
 import {nextThemeMode, ThemeProvider, type ThemeMode, useTheme} from './theme.js'
 import {
   buildChoices,
+  cleanupProbeInfo,
   download,
   ensureYtDlp,
   findFfmpeg,
@@ -205,6 +206,8 @@ function AppContent({
   }, [initialUrl, startProbe])
 
   const resetToInput = useCallback(() => {
+    void cleanupProbeInfo(infoJsonRef.current)
+    infoJsonRef.current = undefined
     setUrl('')
     setUrlInput('')
     setPlatform(undefined)
@@ -278,6 +281,9 @@ function AppContent({
       } catch (error) {
         if (controller.signal.aborted) return
         setPhase({name: 'error', message: error instanceof Error ? error.message : String(error)})
+      } finally {
+        void cleanupProbeInfo(infoJsonRef.current)
+        infoJsonRef.current = undefined
       }
     })()
   }

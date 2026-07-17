@@ -103,6 +103,12 @@ export type ProbeResult = {
   infoJsonPath: string
 }
 
+/** Remove the probe's cached info.json — safe to call with undefined or a missing path. */
+export async function cleanupProbeInfo(infoJsonPath?: string): Promise<void> {
+  if (!infoJsonPath) return
+  await fs.rm(infoJsonPath, {force: true})
+}
+
 export async function probe(ytdlp: string, url: string, signal?: AbortSignal): Promise<ProbeResult> {
   const stdout = await new Promise<string>((resolve, reject) => {
     const child = spawn(ytdlp, ['-J', '--no-playlist', '--no-warnings', url], {signal})
@@ -136,6 +142,13 @@ export type DownloadChoice = {
   label: string
   kind: 'video' | 'audio'
   args: string[]
+  /**
+   * Used when the probe's cached info can't be reused (expired media urls) and
+   * yt-dlp re-extracts from the network. The freshly extracted formats may not
+   * carry the same format_ids, so a height-bounded selector is safer than the
+   * pinned id pair in `args`.
+   */
+  fallbackArgs?: string[]
 }
 
 const MAX_VIDEO_CHOICES = 8
@@ -153,16 +166,22 @@ export function buildChoices(info: VideoInfo): DownloadChoice[] {
 
   for (const height of heights.slice(0, MAX_VIDEO_CHOICES)) {
     const candidates = videos.filter(f => f.height === height)
-    const best = [...candidates].sort((a, b) => scoreVideo(b) - scoreVideo(a))[0]
+    const best = [...candidates].sort((a, b) => scoreVideo(b) - scoreVideo(a))[0]!
     const muxed = best.acodec && best.acodec !== 'none'
     const size = (best.filesize ?? best.filesize_approx ?? 0) + (muxed ? 0 : audioSize ?? 0)
     const sizeLabel = size > 0 ? ` · ~${formatBytes(size)}` : ''
+    // pin the exact format we sized the label from. A height-based selector
+    // ending in /b can escape the cap and grab 4K when the DASH pair yt-dlp's
+    // bv* accepts is missing (e.g. only a story_card 144p exists, which bv*
+    // skips) — the label then lies about ~5 MB while 232 MB comes down.
+    const primaryFormat = muxed || !bestAudio ? best.format_id : `${best.format_id}+${bestAudio.format_id}`
     choices.push({
       kind: 'video',
       label: `${height}p · mp4${sizeLabel}`,
-      args: [
+      args: ['-f', primaryFormat, '--merge-output-format', 'mp4'],
+      fallbackArgs: [
         '-f',
-        `bv*[height=${height}]+ba/b[height=${height}]/bv*[height<=${height}]+ba/b`,
+        `bv*[height=${height}]+ba/b[height=${height}]/bv*[height<=${height}]+ba/b[height<=${height}]`,
         '--merge-output-format',
         'mp4',
       ],
@@ -181,7 +200,10 @@ export function buildChoices(info: VideoInfo): DownloadChoice[] {
   choices.push({
     kind: 'audio',
     label: `audio only · mp3${audioSizeLabel}`,
-    args: ['-f', 'ba/b', '-x', '--audio-format', 'mp3', '--audio-quality', '0'],
+    args: bestAudio
+      ? ['-f', bestAudio.format_id, '-x', '--audio-format', 'mp3', '--audio-quality', '0']
+      : ['-f', 'ba/b', '-x', '--audio-format', 'mp3', '--audio-quality', '0'],
+    fallbackArgs: ['-f', 'ba/b', '-x', '--audio-format', 'mp3', '--audio-quality', '0'],
   })
 
   return choices
@@ -230,7 +252,9 @@ export function download(
 ): Promise<string> {
   const args = [
     ...(opts.infoJsonPath ? ['--load-info-json', opts.infoJsonPath] : [opts.url]),
-    ...opts.choice.args,
+    // pinned format_ids when the cached info guarantees them, otherwise the
+    // height-bounded selector — a re-extraction may not carry the same ids
+    ...(opts.infoJsonPath ? opts.choice.args : opts.choice.fallbackArgs ?? opts.choice.args),
     '--no-playlist',
     '--no-warnings',
     '--newline',
