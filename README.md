@@ -124,6 +124,7 @@ automatically.
 $ fetchit https://youtu.be/dQw4w9WgXcQ    # straight to the format picker
 $ fetchit                                 # prompts for a url
 $ fetchit --theme light                   # force the light palette
+$ fetchit update                          # update the bundled yt-dlp binary
 ```
 
 fetchit takes over the terminal (full-screen, centered — and restores your
@@ -132,6 +133,21 @@ and hit enter. `[Esc]` goes back, `[Ctrl+C]` quits. Or just use the mouse — th
 fetchit button, the format list and the footer hints are all clickable, and
 clicking the logo takes you back home. Files are saved to `~/Downloads`,
 and the file path is printed to your terminal when you're done.
+
+### Keeping yt-dlp up to date
+
+yt-dlp updates frequently (sometimes weekly) because sites keep changing
+their layout. If downloads start failing, the fix is almost always to
+update yt-dlp. If fetchit downloaded yt-dlp for you (most users), run:
+
+```sh
+fetchit update
+```
+
+This runs `yt-dlp -U` on the bundled binary at `~/.fetchit/bin/yt-dlp` and
+prints the new version. If you have yt-dlp installed system-wide (via pip,
+brew, or winget), fetchit tells you to update it through your package
+manager instead — it can't update a system install.
 
 <div align="center">
   <img src="assets/download-options.jpg" alt="fetchit format picker — resolutions with estimated file sizes, plus audio-only mp3" width="90%">
@@ -201,6 +217,7 @@ support section splitting.
 | `[Tab]` | paste a link detected in your clipboard |
 | `[C]` | toggle chapter embedding (in the format picker) |
 | `[T]` | edit a time range to download a clip (in the format picker) |
+| `[U]` | update the bundled yt-dlp binary (from any non-busy phase) |
 
 The url field is a full readline-style editor:
 
@@ -278,7 +295,7 @@ To try it as a global command without publishing: `npm link`, then run
 - [x] `-o <dir>` to choose the output folder
 - [x] Playlist / thread-with-multiple-videos support
 - [x] Clipboard detection: launch bare and auto-suggest the url you copied
-- [ ] Self-update for the bundled yt-dlp binary (`yt-dlp -U`)
+- [x] Self-update for the bundled yt-dlp binary (`fetchit update`)
 - [x] Publish to npm (`npm i -g @vedant1521/fetchit` / `npx @vedant1521/fetchit`)
 - [ ] `curl fetchit.sh | sh` installer
 

@@ -17,6 +17,7 @@ import {
   pickChoiceByLabel,
   probePlaylistItem,
   smartProbe,
+  updateYtDlp,
 } from './lib/ytdlp.js'
 
 // read at runtime from the shipped package.json so npm version bumps
@@ -28,6 +29,7 @@ const HELP = `
 
   Usage
     $ fetchit [url]
+    $ fetchit update          update the bundled yt-dlp binary
 
   Examples
     $ fetchit https://youtu.be/dQw4w9WgXcQ
@@ -74,6 +76,18 @@ if (args.help) {
 if (args.version) {
   console.log(VERSION)
   process.exit(0)
+}
+
+// `fetchit update` — update the bundled yt-dlp binary in place
+if (args.subcommand === 'update') {
+  try {
+    const version = await updateYtDlp(m => console.log(m))
+    console.log(`✓ yt-dlp updated to ${version}`)
+    process.exit(0)
+  } catch (error) {
+    console.error(`fetchit: ${error instanceof Error ? error.message : String(error)}`)
+    process.exit(1)
+  }
 }
 
 const initialUrl = args.initialUrl

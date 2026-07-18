@@ -292,18 +292,21 @@ of the time.
 
 **If fetchit downloaded yt-dlp for you** (most users):
 ```sh
-yt-dlp -U
+fetchit update
 ```
+This runs `yt-dlp -U` on the bundled binary at `~/.fetchit/bin/yt-dlp` and
+prints the new version. One command, no hunting for files.
 
-**If you installed yt-dlp yourself:**
+**If you installed yt-dlp yourself** (system install on your PATH):
 ```sh
 pip install -U yt-dlp
 # or
 brew upgrade yt-dlp
+# or
+winget upgrade yt-dlp
 ```
-
-fetchit uses your system yt-dlp if you have one, otherwise the
-auto-fetched one at `~/.fetchit/bin/yt-dlp`.
+fetchit detects system yt-dlp and tells you to update it this way — it
+can't update a system install itself.
 
 ---
 

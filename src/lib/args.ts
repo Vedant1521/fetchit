@@ -4,6 +4,8 @@ import {normalizeTime} from './ytdlp.js'
 export type CliArgs = {
   help: boolean
   version: boolean
+  /** Subcommand: `update` updates the bundled yt-dlp binary. */
+  subcommand?: 'update'
   initialUrl?: string
   themeMode?: ThemeMode
   /** Scriptable mode: download best quality, skip the picker. */
@@ -95,6 +97,11 @@ export function parseArgs(args: string[]): CliArgs {
   }
 
   if (positional.length > 2) return {...result, error: 'expected a url and optional quality (e.g. 1080p or mp3)'}
+  // `update` subcommand — recognized only as the sole positional, no url/flags
+  if (positional[0] === 'update' && positional.length === 1 && !result.best && !result.mp3 && !result.outputDir && !result.chapters && !result.from && !result.to && !result.themeMode) {
+    result.subcommand = 'update'
+    return result
+  }
   result.initialUrl = positional[0]
   if (positional[1]) {
     if (!isQuality(positional[1])) {

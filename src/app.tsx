@@ -27,6 +27,7 @@ import {
   normalizeTime,
   probePlaylistItem,
   smartProbe,
+  updateYtDlp,
   type DownloadChoice,
   type DownloadProgress,
   type PlaylistEntry,
@@ -108,6 +109,7 @@ type Phase =
 const HINTS: Record<Phase['name'], Array<[string, string]>> = {
   input: [
     ['[Enter]', 'fetchit'],
+    ['[U]', 'update'],
     ['[Ctrl+C]', 'quit'],
   ],
   probing: [
@@ -118,6 +120,7 @@ const HINTS: Record<Phase['name'], Array<[string, string]>> = {
     ['[↑/↓]', 'move'],
     ['[Space]', 'toggle'],
     ['[Enter]', 'fetchit'],
+    ['[U]', 'update'],
     ['[Esc]', 'back'],
     ['[Ctrl+C]', 'quit'],
   ],
@@ -126,6 +129,7 @@ const HINTS: Record<Phase['name'], Array<[string, string]>> = {
     ['[Enter]', 'fetchit'],
     ['[C]', 'chapters'],
     ['[T]', 'time range'],
+    ['[U]', 'update'],
     ['[Esc]', 'back'],
     ['[Ctrl+C]', 'quit'],
   ],
@@ -133,10 +137,11 @@ const HINTS: Record<Phase['name'], Array<[string, string]>> = {
     ['[Esc]', 'cancel'],
     ['[Ctrl+C]', 'quit'],
   ],
-  done: [['[Ctrl+C]', 'quit']],
+  done: [['[Enter]', 'fetchit another'], ['[U]', 'update'], ['[Ctrl+C]', 'quit']],
   error: [
     ['[Enter]', 'try again'],
     ['[Esc]', 'back'],
+    ['[U]', 'update'],
     ['[Ctrl+C]', 'quit'],
   ],
 }
@@ -193,6 +198,8 @@ function AppContent({
   const [chapters, setChapters] = useState(false)
   const [timeRange, setTimeRange] = useState<{from?: string; to?: string} | undefined>(undefined)
   const [timeInputValue, setTimeInputValue] = useState('')
+  // in-TUI yt-dlp update — triggered with [U] from any non-busy phase
+  const [updateStatus, setUpdateStatus] = useState<{state: 'idle' | 'updating' | 'done' | 'error'; message?: string}>({state: 'idle'})
   const [phase, setPhase] = useState<Phase>(initialUrl ? {name: 'probing', status: 'warming up…'} : {name: 'input'})
 
   const columns = stdout?.columns && stdout.columns > 0 ? stdout.columns : 80
@@ -246,6 +253,7 @@ function AppContent({
     setChapters(false)
     setTimeRange(undefined)
     setTimeInputValue('')
+    setUpdateStatus({state: 'idle'})
     setUrl('')
     setUrlInput('')
     setPlatform(undefined)
@@ -260,10 +268,28 @@ function AppContent({
     setUrlInput(url) // keep the link around so a cancel isn't destructive
   }, [resetToInput, url])
 
+  const triggerUpdate = useCallback(() => {
+    if (updateStatus.state === 'updating') return
+    setUpdateStatus({state: 'updating', message: 'updating yt-dlp…'})
+    void (async () => {
+      try {
+        const version = await updateYtDlp(m => setUpdateStatus({state: 'updating', message: m}))
+        setUpdateStatus({state: 'done', message: `✓ yt-dlp updated to ${version}`})
+      } catch (error) {
+        setUpdateStatus({state: 'error', message: error instanceof Error ? error.message : String(error)})
+      }
+    })()
+  }, [updateStatus.state])
+
   useInput(
     (input, key) => {
       if (key.ctrl && input === 't') {
         cycleTheme()
+        return
+      }
+      // [U] updates yt-dlp from any non-busy phase (not during probing/downloading)
+      if ((input === 'u' || input === 'U') && phase.name !== 'probing' && phase.name !== 'downloading') {
+        triggerUpdate()
         return
       }
       if (key.escape && (phase.name === 'picking' || phase.name === 'playlist' || phase.name === 'error' || phase.name === 'done')) resetToInput()
@@ -436,6 +462,7 @@ function AppContent({
   const hintAction = (key: string): (() => void) | undefined => {
     if (key === '[Ctrl+C]') return () => exit()
     if (key === '[Ctrl+T]') return cycleTheme
+    if (key === '[U]') return triggerUpdate
     if (key === '[Esc]') return phase.name === 'probing' || phase.name === 'downloading' ? cancelRun : resetToInput
     if (key === '[Enter]') {
       if (phase.name === 'input') return () => handleUrlSubmit(urlInput)
@@ -706,6 +733,24 @@ function AppContent({
           <Text bold color={theme.primary}>✗ {phase.message}</Text>
         </Box>
       )}
+
+      {updateStatus.state !== 'idle' ? (
+        <Box flexDirection="column" alignItems="center">
+          <Gap />
+          {updateStatus.state === 'updating' ? (
+            <Text>
+              <Text color={theme.primary}>
+                <Spinner type="dots" />
+              </Text>
+              <Text color={theme.gray} dimColor={theme.dimSecondary}> {updateStatus.message}</Text>
+            </Text>
+          ) : updateStatus.state === 'done' ? (
+            <Text color={theme.primary}>{updateStatus.message}</Text>
+          ) : (
+            <Text color={theme.primary}>✗ {updateStatus.message}</Text>
+          )}
+        </Box>
+      ) : null}
 
       {hints.length > 0 ? (
         <>

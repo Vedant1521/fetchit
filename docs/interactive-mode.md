@@ -120,11 +120,13 @@ the error message in red.
 | Input | `[Tab]` | Paste a url from your clipboard |
 | Input | `[↑]` | Recall a url from history |
 | Input | `[↓]` | Move forward through history |
+| Input | `[U]` | Update the bundled yt-dlp binary |
 | Probing | `[Esc]` | Cancel, go back to input |
 | Picking | `[↑]` / `[↓]` | Move the highlight |
 | Picking | `[Enter]` | Download the highlighted format |
 | Picking | `[C]` | Toggle chapter embedding on/off |
 | Picking | `[T]` | Edit a time range (download just a clip) |
+| Picking | `[U]` | Update the bundled yt-dlp binary |
 | Picking | `[Esc]` | Go back to input |
 | Playlist | `[↑]` / `[↓]` | Move through the video list |
 | Playlist | `[Space]` | Toggle a video on/off |
@@ -318,6 +320,31 @@ chapters: on · range: 0:05:30–0:10:15
 ```
 
 Both apply to the download when you pick a format and press `[Enter]`.
+
+---
+
+## Updating yt-dlp from inside the TUI
+
+yt-dlp updates frequently because video sites keep changing. If downloads
+start failing, press `[U]` from any non-busy phase (input, picking,
+playlist, done, or error) to update the bundled yt-dlp binary without
+leaving fetchit.
+
+You'll see an inline status:
+```
+⠼ updating yt-dlp 2026.07.04…
+```
+
+When it's done:
+```
+✓ yt-dlp updated to 2026.07.05
+```
+
+The update runs in the background — you can keep using fetchit while it
+works. If you have a system yt-dlp install (on PATH), fetchit shows an
+error telling you to update via your package manager instead.
+
+You can also click the `[U] update` hint in the footer with your mouse.
 
 ---
 

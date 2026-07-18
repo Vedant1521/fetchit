@@ -75,6 +75,75 @@ async function renameWithRetry(src: string, dest: string, retries = 5): Promise<
   }
 }
 
+/** Read the version string a yt-dlp binary prints, or undefined if it won't run. */
+async function ytDlpVersion(binary: string): Promise<string | undefined> {
+  return new Promise(resolve => {
+    const child = spawn(binary, ['--version'], {shell: process.platform === 'win32'})
+    let out = ''
+    child.stdout.on('data', chunk => (out += chunk))
+    child.on('error', () => resolve(undefined))
+    child.on('close', code => resolve(code === 0 ? out.trim() : undefined))
+  })
+}
+
+/**
+ * Update the bundled yt-dlp binary in place via `yt-dlp -U`. Returns the new
+ * version string. Throws with a helpful message if yt-dlp is a system install
+ * (can't be updated by fetchit) or isn't present.
+ */
+export async function updateYtDlp(onStatus: (message: string) => void): Promise<string> {
+  // system install first — fetchit can't update that, tell the user how
+  if (await commandWorks('yt-dlp', ['--version'])) {
+    const v = await ytDlpVersion('yt-dlp')
+    throw new Error(
+      `yt-dlp ${v ?? ''} is installed on your PATH (system install) — fetchit can’t update it. ` +
+      `Update it yourself with: pip install -U yt-dlp  (or brew upgrade yt-dlp / winget upgrade yt-dlp)`,
+    )
+  }
+
+  const local = path.join(FETCHIT_DIR, process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp')
+  if (!(await commandWorks(local, ['--version']))) {
+    throw new Error(
+      'No bundled yt-dlp found — run fetchit once to download it, then run `fetchit update`.',
+    )
+  }
+
+  const before = await ytDlpVersion(local)
+  onStatus(`updating yt-dlp${before ? ` ${before}` : ''}…`)
+
+  // run `yt-dlp -U` — it replaces the binary in place
+  const stderr = await new Promise<string>((resolve, reject) => {
+    const child = spawn(local, ['-U'], {shell: process.platform === 'win32'})
+    let err = ''
+    child.stderr.on('data', chunk => (err += chunk))
+    child.stdout.on('data', () => {}) // yt-dlp prints update progress to stdout
+    child.on('error', reject)
+    child.on('close', code => {
+      if (code === 0) resolve(err)
+      else reject(new Error(cleanYtDlpError(err) || `yt-dlp -U exited with code ${code}`))
+    })
+  })
+
+  // on Windows, `yt-dlp -U` may download the new exe to yt-dlp.exe.new and not
+  // swap it (AV lock again) — if so, swap it ourselves with rename retry
+  const updated = `${local}.new`
+  try {
+    await fs.access(updated)
+    await renameWithRetry(updated, local)
+  } catch {
+    // no .new file — yt-dlp swapped it itself, that's fine
+  }
+
+  const after = await ytDlpVersion(local)
+  if (!after) {
+    throw new Error('yt-dlp update finished but the binary no longer runs. Try `fetchit update` again.')
+  }
+  if (stderr && /ERROR/i.test(stderr)) {
+    throw new Error(cleanYtDlpError(stderr))
+  }
+  return after
+}
+
 /**
  * Find ffmpeg for stream merging / mp3 extraction: system install first,
  * ffmpeg-static as fallback. Returns undefined if neither exists — yt-dlp
