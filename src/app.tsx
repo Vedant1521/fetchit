@@ -24,6 +24,7 @@ import {
   download,
   ensureYtDlp,
   findFfmpeg,
+  normalizeTime,
   probePlaylistItem,
   smartProbe,
   type DownloadChoice,
@@ -34,7 +35,7 @@ import {
 
 const OUT_DIR = path.join(os.homedir(), 'Downloads')
 const FETCHIT_BUTTON = 'fetchit'
-const DONE_LABEL = '↵ fetchit another'
+const DONE_LABEL = '[Enter] fetchit another'
 const TAGLINE = 'grab any video. paste. fetch. done.'
 
 const choiceLabel = (choice: DownloadChoice) => `${choice.kind === 'audio' ? '♪ ' : '▶ '}${choice.label}`
@@ -93,7 +94,7 @@ type Phase =
   | {name: 'input'; warning?: string}
   | {name: 'probing'; status: string}
   | {name: 'playlist'; title: string; entries: PlaylistEntry[]; selected: boolean[]}
-  | {name: 'picking'}
+  | {name: 'picking'; timeInput?: boolean}
   | {
       name: 'downloading'
       choice: DownloadChoice
@@ -106,34 +107,37 @@ type Phase =
 
 const HINTS: Record<Phase['name'], Array<[string, string]>> = {
   input: [
-    ['↵', 'fetchit'],
-    ['^c', 'quit'],
+    ['[Enter]', 'fetchit'],
+    ['[Ctrl+C]', 'quit'],
   ],
   probing: [
-    ['esc', 'cancel'],
-    ['^c', 'quit'],
+    ['[Esc]', 'cancel'],
+    ['[Ctrl+C]', 'quit'],
   ],
   playlist: [
-    ['↑↓', 'move'],
-    ['␣', 'toggle'],
-    ['↵', 'fetchit'],
-    ['esc', 'back'],
-    ['^c', 'quit'],
+    ['[↑/↓]', 'move'],
+    ['[Space]', 'toggle'],
+    ['[Enter]', 'fetchit'],
+    ['[Esc]', 'back'],
+    ['[Ctrl+C]', 'quit'],
   ],
   picking: [
-    ['↑↓', 'choose'],
-    ['↵', 'fetchit'],
-    ['esc', 'back'],
-    ['^c', 'quit'],
+    ['[↑/↓]', 'choose'],
+    ['[Enter]', 'fetchit'],
+    ['[C]', 'chapters'],
+    ['[T]', 'time range'],
+    ['[Esc]', 'back'],
+    ['[Ctrl+C]', 'quit'],
   ],
   downloading: [
-    ['esc', 'cancel'],
-    ['^c', 'quit'],
+    ['[Esc]', 'cancel'],
+    ['[Ctrl+C]', 'quit'],
   ],
-  done: [['^c', 'quit']],
+  done: [['[Ctrl+C]', 'quit']],
   error: [
-    ['↵', 'try again'],
-    ['^c', 'quit'],
+    ['[Enter]', 'try again'],
+    ['[Esc]', 'back'],
+    ['[Ctrl+C]', 'quit'],
   ],
 }
 
@@ -141,10 +145,11 @@ type AppProps = {
   initialUrl?: string
   clipboardUrl?: string
   initialThemeMode?: ThemeMode
+  outputDir?: string
   onOutcome: (outcome: Outcome) => void
 }
 
-export function App({initialThemeMode = 'auto', ...props}: AppProps) {
+export function App({initialThemeMode = 'auto', outputDir, ...props}: AppProps) {
   const [themeMode, setThemeMode] = useState(initialThemeMode)
   const cycleTheme = useCallback(() => {
     setThemeMode(nextThemeMode)
@@ -152,7 +157,7 @@ export function App({initialThemeMode = 'auto', ...props}: AppProps) {
 
   return (
     <ThemeProvider mode={themeMode}>
-      <AppContent {...props} cycleTheme={cycleTheme} />
+      <AppContent {...props} outputDir={outputDir} cycleTheme={cycleTheme} />
     </ThemeProvider>
   )
 }
@@ -160,11 +165,13 @@ export function App({initialThemeMode = 'auto', ...props}: AppProps) {
 function AppContent({
   initialUrl,
   clipboardUrl,
+  outputDir,
   onOutcome,
   cycleTheme,
 }: {
   initialUrl?: string
   clipboardUrl?: string
+  outputDir?: string
   onOutcome: (outcome: Outcome) => void
   cycleTheme: () => void
 }) {
@@ -182,6 +189,10 @@ function AppContent({
   const infoJsonRef = useRef<string | undefined>(undefined)
   const playlistSelectionRef = useRef<{indices: number[]; title: string} | undefined>(undefined)
   const abortRef = useRef<AbortController | undefined>(undefined)
+  // chapters + time range — set in the picking phase, applied to the download
+  const [chapters, setChapters] = useState(false)
+  const [timeRange, setTimeRange] = useState<{from?: string; to?: string} | undefined>(undefined)
+  const [timeInputValue, setTimeInputValue] = useState('')
   const [phase, setPhase] = useState<Phase>(initialUrl ? {name: 'probing', status: 'warming up…'} : {name: 'input'})
 
   const columns = stdout?.columns && stdout.columns > 0 ? stdout.columns : 80
@@ -232,6 +243,9 @@ function AppContent({
     void cleanupProbeInfo(infoJsonRef.current)
     infoJsonRef.current = undefined
     playlistSelectionRef.current = undefined
+    setChapters(false)
+    setTimeRange(undefined)
+    setTimeInputValue('')
     setUrl('')
     setUrlInput('')
     setPlatform(undefined)
@@ -254,15 +268,65 @@ function AppContent({
       }
       if (key.escape && (phase.name === 'picking' || phase.name === 'playlist' || phase.name === 'error' || phase.name === 'done')) resetToInput()
       if (key.escape && (phase.name === 'probing' || phase.name === 'downloading')) cancelRun()
+      if (key.escape && phase.name === 'picking' && phase.timeInput) {
+        setPhase({name: 'picking'})
+        setTimeInputValue('')
+        return
+      }
       if (key.return && (phase.name === 'error' || phase.name === 'done')) resetToInput()
+      // picking-phase toggles for chapters and time range — only when the time
+      // input isn't active (those keys belong to the TextInput then)
+      if (phase.name === 'picking' && !phase.timeInput) {
+        if (input === 'c' || input === 'C') {
+          setChapters(c => !c)
+          return
+        }
+        if (input === 't' || input === 'T') {
+          setPhase({name: 'picking', timeInput: true})
+          setTimeInputValue(timeRange ? `${timeRange.from ?? ''}-${timeRange.to ?? ''}` : '')
+          return
+        }
+      }
     },
     {isActive: Boolean(process.stdin.isTTY)},
   )
 
+  // submit the time-range input — accepts "from-to", "from-" (to end), or "-to" (from start)
+  const handleTimeSubmit = (value: string) => {
+    const trimmed = value.trim()
+    if (!trimmed) {
+      // empty clears the range
+      setTimeRange(undefined)
+      setPhase({name: 'picking'})
+      setTimeInputValue('')
+      return
+    }
+    const [fromRaw, toRaw] = trimmed.split('-')
+    const from = fromRaw?.trim() ? normalizeTime(fromRaw.trim()) : undefined
+    const to = toRaw?.trim() ? normalizeTime(toRaw.trim()) : undefined
+    if (fromRaw?.trim() && !from) {
+      setTimeRange(undefined)
+      setPhase({name: 'picking'})
+      setTimeInputValue('')
+      setPhase({name: 'error', message: `invalid start time “${fromRaw.trim()}” — use MM:SS or HH:MM:SS`})
+      return
+    }
+    if (toRaw?.trim() && !to) {
+      setTimeRange(undefined)
+      setPhase({name: 'picking'})
+      setTimeInputValue('')
+      setPhase({name: 'error', message: `invalid end time “${toRaw.trim()}” — use MM:SS or HH:MM:SS`})
+      return
+    }
+    setTimeRange({from, to})
+    setPhase({name: 'picking'})
+    setTimeInputValue('')
+  }
+
   const handleUrlSubmit = (value: string) => {
     const trimmed = value.trim()
     if (!isProbablyUrl(trimmed)) {
-      setPhase({name: 'input', warning: 'that doesn’t look like a link — paste a full url'})
+      setPhase({name: 'input', warning: 'not a valid url — paste a full link, e.g. https://youtu.be/…'})
       return
     }
     setUrl(trimmed)
@@ -321,7 +385,15 @@ function AppContent({
       }
       try {
         const ffmpegLocation = await findFfmpeg()
-        const base = {ytdlp: ytdlpRef.current, ffmpegLocation, url, choice, outDir: OUT_DIR}
+        const base = {
+          ytdlp: ytdlpRef.current,
+          ffmpegLocation,
+          url,
+          choice,
+          outDir: outputDir ?? OUT_DIR,
+          chapters,
+          sections: timeRange,
+        }
         let filepaths: string[]
         try {
           // reuse the probe's metadata — starts immediately instead of re-extracting.
@@ -353,24 +425,24 @@ function AppContent({
     })()
   }
 
-  let hints: Array<[string, string]> = [...HINTS[phase.name], ['^t', `theme:${theme.mode}`]]
+  let hints: Array<[string, string]> = [...HINTS[phase.name], ['[Ctrl+T]', `theme:${theme.mode}`]]
   if (phase.name === 'input' && history.length > 0) {
-    hints = [hints[0]!, ['↑', 'history'], ...hints.slice(1)]
+    hints = [hints[0]!, ['[↑]', 'history'], ...hints.slice(1)]
   }
 
   // Anything a mouse user would expect to press is clickable. Targets are
   // found by their text in the rendered frame (see lib/click-map.ts), so
   // there is no layout math to keep in sync.
   const hintAction = (key: string): (() => void) | undefined => {
-    if (key === '^c') return () => exit()
-    if (key === '^t') return cycleTheme
-    if (key === 'esc') return phase.name === 'probing' || phase.name === 'downloading' ? cancelRun : resetToInput
-    if (key === '↵') {
+    if (key === '[Ctrl+C]') return () => exit()
+    if (key === '[Ctrl+T]') return cycleTheme
+    if (key === '[Esc]') return phase.name === 'probing' || phase.name === 'downloading' ? cancelRun : resetToInput
+    if (key === '[Enter]') {
       if (phase.name === 'input') return () => handleUrlSubmit(urlInput)
       if (phase.name === 'picking') return () => handlePick({value: highlightRef.current})
       if (phase.name === 'error' || phase.name === 'done') return resetToInput
     }
-    return undefined // ↑↓ / ↑ stay keyboard-only
+    return undefined // [↑/↓] / [↑] stay keyboard-only
   }
   const clickTargets: ClickTarget[] = []
   if (phase.name === 'input') {
@@ -434,9 +506,9 @@ function AppContent({
           {phase.warning ? (
             <Text color={theme.gray} dimColor={theme.dimSecondary}>✗ {phase.warning}</Text>
           ) : clipboardOffered ? (
-            <Text color={theme.gray} dimColor={theme.dimSecondary}>link in your clipboard — ⇥ to paste it</Text>
+            <Text color={theme.gray} dimColor={theme.dimSecondary}>link in your clipboard — [Tab] to paste it</Text>
           ) : clipboardAccepted ? (
-            <Text color={theme.gray} dimColor={theme.dimSecondary}>from your clipboard — ↵ to fetch it</Text>
+            <Text color={theme.gray} dimColor={theme.dimSecondary}>from your clipboard — [Enter] to fetch it</Text>
           ) : null}
         </Box>
       )}
@@ -500,6 +572,27 @@ function AppContent({
                 {info?.uploader ? ` · ${info.uploader}` : ''}
               </Text>
             )}
+            {/* show current chapters / time-range state so the user knows what's applied */}
+            {(chapters || timeRange) && (
+              <Text color={theme.gray} dimColor={theme.dimSecondary}>
+                {chapters ? 'chapters: on' : ''}
+                {chapters && timeRange ? ' · ' : ''}
+                {timeRange ? `range: ${timeRange.from ?? '0:00'}–${timeRange.to ?? 'end'}` : ''}
+              </Text>
+            )}
+            {phase.timeInput ? (
+              <>
+                <Gap />
+                <Text color={theme.gray} dimColor={theme.dimSecondary}>time range — start-end (e.g. 5:30-10:15), or empty to clear:</Text>
+                <TextInput
+                  value={timeInputValue}
+                  onChange={setTimeInputValue}
+                  onSubmit={handleTimeSubmit}
+                  placeholder="5:30-10:15"
+                  width={Math.max(10, contentWidth - 41)}
+                />
+              </>
+            ) : null}
           </Box>
           <Panel title="Download" width={38}>
             <SelectInput

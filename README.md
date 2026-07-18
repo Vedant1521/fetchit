@@ -52,14 +52,38 @@ no sketchy redirects.
   footer hints, or the logo (takes you home). Or drive it entirely from
   the keyboard with readline-style editing.
 - **three themes** — `auto` follows your terminal's own colors (light
-  or dark), or force `light` / `dark`. Cycle live with `^t`.
+  or dark), or force `light` / `dark`. Cycle live with `[Ctrl+T]`.
 - **clipboard-aware** — launch bare and fetchit notices when your
-  clipboard already holds a link; `⇥` pastes it, `↵` fetches it.
-- **url history** — last 50 links are recalled with `↑` / `↓` and
+  clipboard already holds a link; `[Tab]` pastes it, `[Enter]` fetches it.
+- **url history** — last 50 links are recalled with `[↑]` / `[↓]` and
   stored at `~/.config/fetchit/history.json`.
 - **zero Python, zero manual setup** — the standalone yt-dlp binary is
   fetched on first run; ffmpeg is found on your PATH with a bundled
   fallback. Nothing else to install.
+- **scriptable mode** — `fetchit --best <url>` / `fetchit --mp3 <url>`
+  skip the picker entirely and download directly, no terminal takeover.
+  Pair with `-o <dir>` to point the output anywhere. Built for shell
+  scripts, cron jobs, and CI pipelines.
+- **chapters & time ranges** — `--chapters` embeds YouTube chapter markers
+  into the file (view in VLC: right-click → Playback → Chapter; Windows
+  Media Player doesn't support them), and `--from`/`--to` download just a
+  clip from a long video. Toggle both live in the picker with `[C]` and
+  `[T]`.
+
+## 📚 Documentation
+
+New to fetchit? Start with the **[Getting Started](./docs/getting-started.md)**
+guide — it walks you through install, your first download, and where files go.
+
+For everything else, there's a dedicated guide:
+
+| Guide | What's inside |
+| --- | --- |
+| [Getting Started](./docs/getting-started.md) | Install, first run, your first download, quick reference |
+| [Interactive Mode](./docs/interactive-mode.md) | Full-screen TUI, every keyboard shortcut, mouse, themes, clipboard, history |
+| [Scriptable Mode](./docs/scriptable-mode.md) | `--best` / `--mp3` / direct quality, `-o`, exit codes, scripting examples |
+| [Playlists](./docs/playlists.md) | Playlist detection, multi-select picker, batch downloads, output structure |
+| [Troubleshooting](./docs/troubleshooting.md) | Common errors, updating yt-dlp, ffmpeg issues, platform notes |
 
 ## 📺 Supported platforms
 
@@ -103,8 +127,8 @@ $ fetchit --theme light                   # force the light palette
 ```
 
 fetchit takes over the terminal (full-screen, centered — and restores your
-scrollback on exit). Pick a format with `↑`/`↓` (or `j`/`k`, or number keys)
-and hit enter. `esc` goes back, `^c` quits. Or just use the mouse — the
+scrollback on exit). Pick a format with `[↑]`/`[↓]` (or `j`/`k`, or number keys)
+and hit enter. `[Esc]` goes back, `[Ctrl+C]` quits. Or just use the mouse — the
 fetchit button, the format list and the footer hints are all clickable, and
 clicking the logo takes you back home. Files are saved to `~/Downloads`,
 and the file path is printed to your terminal when you're done.
@@ -113,11 +137,53 @@ and the file path is printed to your terminal when you're done.
   <img src="assets/download-options.jpg" alt="fetchit format picker — resolutions with estimated file sizes, plus audio-only mp3" width="90%">
 </div>
 
+### Scriptable mode (no picker)
+
+For scripts, cron jobs, and pipes — skip the interactive picker entirely
+and download directly. No terminal takeover, no React, just a one-line
+result. Works in any CI or shell pipeline.
+
+```sh
+$ fetchit --best https://youtu.be/…           # best quality, straight to download
+$ fetchit --mp3 https://youtu.be/…            # audio-only mp3, straight to download
+$ fetchit https://youtu.be/… 1080p            # direct quality — pick a resolution
+$ fetchit https://youtu.be/… mp3              # same as --mp3, positional form
+$ fetchit https://youtu.be/… 720p -o ~/Videos # save into ~/Videos instead
+$ fetchit --best -o ~/Videos https://youtu.be/…  # flags + positional together
+$ fetchit --chapters https://youtu.be/…       # best quality + chapter markers
+$ fetchit --best --from 5:30 --to 10:15 https://youtu.be/…   # download a clip
+```
+
+`--best` and `--mp3` are mutually exclusive and both require a url. The
+direct quality form takes a second positional: any resolution the video
+offers (`1080p`, `720p`, `360p`, `144p`, …) or `mp3` / `audio`. They
+auto-detect playlists (same as interactive mode) and download every item
+into `~/Downloads/<playlist title>/` (or your `-o` dir). Progress is
+printed as dots so the output stays pipe-friendly — `.` per progress tick,
+`|` when merging/extracting.
+
+`--chapters`, `--from`, and `--to` also trigger scriptable mode — they
+download at **best quality** by default, so pair them with a quality or
+`--best`/`--mp3` to choose something else. `--chapters` embeds YouTube
+chapter markers into the output file (requires ffmpeg, and the video must
+have chapters set by its creator). `--from` and `--to` download only a time
+range — accept `MM:SS` or `HH:MM:SS` and can be used together or
+individually (`--from 5:30` downloads from 5:30 to the end). Note:
+time-range downloads need a system ffmpeg; the bundled fallback may not
+support section splitting.
+
 ### Options
 
 | Flag | Description |
 | --- | --- |
 | `[url]` | a video link to fetch immediately; skipped if omitted |
+| `[quality]` | a resolution like `1080p`/`720p`/`360p`, or `mp3`/`audio` (scriptable) |
+| `--best` | scriptable: download best quality, no picker (requires url) |
+| `--mp3` | scriptable: download audio-only mp3, no picker (requires url) |
+| `--chapters` | embed YouTube chapter markers into the output file |
+| `--from <time>` | download from this point (`MM:SS` or `HH:MM:SS`) |
+| `--to <time>` | download up to this point (`MM:SS` or `HH:MM:SS`) |
+| `-o`, `--output <dir>` | save into `<dir>` instead of `~/Downloads` |
 | `--theme <mode>` | start in `auto`, `light`, or `dark` for this run |
 | `--theme=<mode>` | equals form, useful after the url |
 | `-h`, `--help` | show help |
@@ -127,23 +193,25 @@ and the file path is printed to your terminal when you're done.
 
 | Key | Action |
 | --- | --- |
-| `↵` | fetchit (from the url field or the format picker) |
-| `↑` / `↓` | choose a format, or recall url history in the input |
-| `esc` | back / cancel the current probe or download |
-| `^c` | quit |
-| `^t` | cycle theme: `auto` → `light` → `dark` → `auto` |
-| `⇥` | paste a link detected in your clipboard |
+| `[Enter]` | fetchit (from the url field or the format picker) |
+| `[↑]` / `[↓]` | choose a format, or recall url history in the input |
+| `[Esc]` | back / cancel the current probe or download |
+| `[Ctrl+C]` | quit |
+| `[Ctrl+T]` | cycle theme: `auto` → `light` → `dark` → `auto` |
+| `[Tab]` | paste a link detected in your clipboard |
+| `[C]` | toggle chapter embedding (in the format picker) |
+| `[T]` | edit a time range to download a clip (in the format picker) |
 
 The url field is a full readline-style editor:
 
 | Key | Action |
 | --- | --- |
-| `^a` / `^e` | jump to start / end |
-| `⌥←` / `⌥→` (or `⌥b` / `⌥f`) | jump back / forward one word |
-| `⌥⌫` / `^w` | delete one word back |
-| `^u` / `^k` | delete to start / end of line |
-| `⇧←` / `⇧→` | extend the selection |
-| `⌫` / `delete` | delete one char back / forward |
+| `[Ctrl+A]` / `[Ctrl+E]` | jump to start / end |
+| `[Alt+←]` / `[Alt+→]` (or `[Alt+B]` / `[Alt+F]`) | jump back / forward one word |
+| `[Alt+Backspace]` / `[Ctrl+W]` | delete one word back |
+| `[Ctrl+U]` / `[Ctrl+K]` | delete to start / end of line |
+| `[Shift+←]` / `[Shift+→]` | extend the selection |
+| `[Backspace]` / `[Delete]` | delete one char back / forward |
 
 Pasting a full url into an empty field submits it automatically.
 
@@ -158,7 +226,7 @@ hint, the theme control, and the **logo** (click to go home / cancel).
 
 The default `auto` theme uses your terminal's own foreground and
 background, so it follows light and dark terminal themes without guessing.
-Press `^t` or click the theme control in the footer to cycle through
+Press `[Ctrl+T]` or click the theme control in the footer to cycle through
 `auto`, `light`, and `dark` for the current session. Use `--theme auto`,
 `--theme light`, or `--theme dark` to choose the starting theme for one
 launch.
@@ -206,8 +274,8 @@ To try it as a global command without publishing: `npm link`, then run
 
 ## Roadmap
 
-- [ ] `--best` / `--mp3` flags to skip the picker (scriptable mode)
-- [ ] `-o <dir>` to choose the output folder
+- [x] `--best` / `--mp3` flags to skip the picker (scriptable mode)
+- [x] `-o <dir>` to choose the output folder
 - [x] Playlist / thread-with-multiple-videos support
 - [x] Clipboard detection: launch bare and auto-suggest the url you copied
 - [ ] Self-update for the bundled yt-dlp binary (`yt-dlp -U`)

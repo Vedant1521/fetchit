@@ -22,7 +22,9 @@ function commandWorks(cmd: string, args: string[]): Promise<boolean> {
   return new Promise(resolve => {
     let child
     try {
-      child = spawn(cmd, args, {stdio: 'ignore', timeout: 10_000})
+      // shell: true is needed on Windows — spawn() without it doesn't search PATH
+      // the way cmd does, so a freshly winget-installed ffmpeg is missed.
+      child = spawn(cmd, args, {stdio: 'ignore', timeout: 10_000, shell: process.platform === 'win32'})
     } catch {
       resolve(false)
       return
@@ -54,8 +56,23 @@ export async function ensureYtDlp(onStatus: (message: string) => void, signal?: 
   const tmp = `${local}.download`
   await pipeline(Readable.fromWeb(response.body as never), createWriteStream(tmp), {signal})
   await fs.chmod(tmp, 0o755)
-  await fs.rename(tmp, local)
+  // Windows Defender / AV often locks a freshly-written .exe for scanning, causing
+  // EPERM on rename. Retry a few times with a delay — the lock releases after ~1s.
+  await renameWithRetry(tmp, local)
   return local
+}
+
+async function renameWithRetry(src: string, dest: string, retries = 5): Promise<void> {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      await fs.rename(src, dest)
+      return
+    } catch (error) {
+      if (attempt === retries - 1) throw error
+      // EPERM/EBUSY = AV is scanning; wait and retry
+      await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)))
+    }
+  }
 }
 
 /**
@@ -215,6 +232,49 @@ export async function probePlaylistItem(
   return {info, infoJsonPath: await writeInfoJson(stdout)}
 }
 
+/**
+ * Pick a ready-made choice for scriptable mode. `best` returns the first (highest)
+ * video option from buildChoices, `mp3` returns the audio choice. Both fall back to
+ * a generic selector if buildChoices produced nothing usable.
+ */
+export function pickChoice(info: VideoInfo, mode: 'best' | 'mp3'): DownloadChoice {
+  const choices = buildChoices(info)
+  if (mode === 'mp3') {
+    return (
+      choices.find(c => c.kind === 'audio') ?? {
+        label: 'audio only · mp3',
+        kind: 'audio',
+        args: ['-f', 'ba/b', '-x', '--audio-format', 'mp3', '--audio-quality', '0'],
+      }
+    )
+  }
+  // best: first video choice, or a generic best-video selector if none built
+  return (
+    choices.find(c => c.kind === 'video') ?? {
+      label: 'best available · mp4',
+      kind: 'video',
+      args: ['-f', 'bv*+ba/b', '--merge-output-format', 'mp4'],
+    }
+  )
+}
+
+/**
+ * Pick a choice by direct query for scriptable mode — `1080p` matches the
+ * `1080p · mp4` label, `mp3`/`audio` matches the audio row. Case-insensitive
+ * substring match on the label. Throws if nothing matches.
+ */
+export function pickChoiceByLabel(info: VideoInfo, query: string): DownloadChoice {
+  const choices = buildChoices(info)
+  const needle = query.toLowerCase()
+  // exact token match first (so "1080p" doesn't accidentally hit "1080p" inside a
+  // different resolution's label — unlikely, but be precise)
+  const exact = choices.find(c => c.label.toLowerCase().startsWith(needle))
+  if (exact) return exact
+  const substring = choices.find(c => c.label.toLowerCase().includes(needle))
+  if (substring) return substring
+  throw new Error(`no format matching “${query}” — run without a quality to see the picker`)
+}
+
 export type DownloadChoice = {
   label: string
   kind: 'video' | 'audio'
@@ -318,6 +378,21 @@ const PROGRESS_TEMPLATE = `${PROGRESS_PREFIX}%(progress.downloaded_bytes)s|%(pro
 let activeChild: ChildProcess | undefined
 process.on('exit', () => activeChild?.kill('SIGTERM'))
 
+/**
+ * Parse a time string (SS, MM:SS, or HH:MM:SS) into yt-dlp's HH:MM:SS form.
+ * Returns undefined if the input is malformed. Used for --download-sections.
+ */
+export function normalizeTime(input: string): string | undefined {
+  const parts = input.trim().split(':')
+  if (parts.length < 1 || parts.length > 3) return undefined
+  const nums = parts.map(p => Number.parseInt(p, 10))
+  if (nums.some(n => !Number.isFinite(n) || n < 0)) return undefined
+  const [h, m, s] =
+    nums.length === 3 ? nums : nums.length === 2 ? [0, ...nums] : [0, 0, ...nums]
+  if (s >= 60 || m >= 60) return undefined
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
 export function download(
   opts: {
     ytdlp: string
@@ -329,6 +404,10 @@ export function download(
     outDir: string
     /** Playlist mode: download specific items of the playlist url, into a titled subfolder. */
     playlist?: {indices: number[]}
+    /** Embed chapter markers into the output file (requires ffmpeg). */
+    chapters?: boolean
+    /** Download only a time range; both endpoints optional. */
+    sections?: {from?: string; to?: string}
   },
   handlers: DownloadHandlers,
   signal?: AbortSignal,
@@ -345,6 +424,10 @@ export function download(
       ? opts.choice.fallbackArgs ?? opts.choice.args
       : opts.infoJsonPath ? opts.choice.args : opts.choice.fallbackArgs ?? opts.choice.args),
     ...(playlist ? ['--playlist-items', playlist.indices.join(',')] : ['--no-playlist']),
+    // restrict filenames to ASCII + underscores — Windows can't have | : * ? " < > in
+    // filenames, and yt-dlp's --print after_move:filepath sanitizes illegal chars
+    // differently than its file writer, so the printed path wouldn't match the real file
+    '--restrict-filenames',
     '--no-warnings',
     '--newline',
     // --print implies --quiet, which suppresses progress bars and the
@@ -362,6 +445,11 @@ export function download(
       : path.join(opts.outDir, '%(title).60s.%(ext)s'),
   ]
   if (opts.ffmpegLocation) args.push('--ffmpeg-location', opts.ffmpegLocation)
+  // chapters: embed YouTube chapter markers into the file (ffmpeg post-process)
+  if (opts.chapters) args.push('--embed-chapters')
+  // NOTE: time-range trimming is done as a post-processing step (see trimWithFfmpeg
+  // below) rather than yt-dlp's --download-sections, which hangs on some videos
+  // and isn't supported by the bundled ffmpeg-static on Windows.
 
   return new Promise((resolve, reject) => {
     const child = spawn(opts.ytdlp, args, {signal})
@@ -426,7 +514,7 @@ export function download(
     })
     child.stderr.on('data', chunk => (stderr += chunk))
     child.on('error', reject)
-    child.on('close', code => {
+    child.on('close', async code => {
       activeChild = undefined
       if (signal?.aborted) {
         // cancelled on purpose — don't leave half-written files behind
@@ -434,13 +522,64 @@ export function download(
         reject(new Error('Download cancelled.'))
         return
       }
-      if (code === 0 && filepaths.length > 0) {
-        resolve(filepaths)
-      } else {
+      if (code !== 0 || filepaths.length === 0) {
         reject(new Error(cleanYtDlpError(stderr) || `Download failed (yt-dlp exit code ${code}).`))
+        return
       }
+      // time-range trim: cut each downloaded file to the requested start/end using
+      // ffmpeg's -ss/-to. Done as post-processing (not --download-sections) for
+      // reliability — it works on every video and with any ffmpeg build.
+      if (opts.sections && (opts.sections.from || opts.sections.to)) {
+        try {
+          const trimmed = await trimWithFfmpeg(filepaths, opts.sections, opts.ffmpegLocation, handlers, signal)
+          resolve(trimmed)
+        } catch (error) {
+          reject(error instanceof Error ? error : new Error(String(error)))
+        }
+        return
+      }
+      resolve(filepaths)
     })
   })
+}
+
+/**
+ * Cut each file to the requested time range using ffmpeg -ss/-to. Re-encodes
+ * (stream copy can leave keyframe-aligned gaps); safe for the small clips this
+ * feature is meant for. Replaces the originals with the trimmed versions.
+ */
+async function trimWithFfmpeg(
+  filepaths: string[],
+  sections: {from?: string; to?: string},
+  ffmpegLocation: string | undefined,
+  handlers: DownloadHandlers,
+  signal?: AbortSignal,
+): Promise<string[]> {
+  const ffmpeg = ffmpegLocation ?? 'ffmpeg'
+  const result: string[] = []
+  for (const filepath of filepaths) {
+    if (signal?.aborted) throw new Error('Download cancelled.')
+    handlers.onProcessing()
+    const ext = path.extname(filepath)
+    const base = filepath.slice(0, -ext.length)
+    const tmp = `${base}.trimmed${ext}`
+    const args = ['-y']
+    if (sections.from) args.push('-ss', sections.from)
+    if (sections.to) args.push('-to', sections.to)
+    args.push('-i', filepath, '-c:a', 'copy', '-c:v', 'copy', tmp)
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(ffmpeg, args, {signal, shell: process.platform === 'win32' && !ffmpegLocation})
+      child.on('error', reject)
+      child.on('close', code => {
+        if (code === 0) resolve()
+        else reject(new Error(`ffmpeg trim failed (exit code ${code}) — is ffmpeg installed?`))
+      })
+    })
+    await fs.rm(filepath, {force: true})
+    await fs.rename(tmp, filepath)
+    result.push(filepath)
+  }
+  return result
 }
 
 function removePartials(destinations: string[]): Promise<unknown> {

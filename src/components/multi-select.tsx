@@ -69,7 +69,7 @@ export function MultiSelect({
       })}
       {items.length > visible ? (
         <Text color={theme.gray} dimColor={theme.dimSecondary}>
-          {' '}{'↑↓ move · ⇧ scroll'} {start + 1}–{end}/{items.length}
+          {' '}{'[↑/↓] move · [Shift] scroll'} {start + 1}–{end}/{items.length}
         </Text>
       ) : null}
     </Box>
