@@ -7,6 +7,7 @@ import Spinner from 'ink-spinner'
 import {FramedInput} from './components/framed-input.js'
 import {FullScreen} from './components/fullscreen.js'
 import {Logo} from './components/logo.js'
+import {MultiSelect} from './components/multi-select.js'
 import {Panel} from './components/panel.js'
 import {ProgressBar} from './components/progress-bar.js'
 import {Shortcuts} from './components/shortcuts.js'
@@ -23,9 +24,11 @@ import {
   download,
   ensureYtDlp,
   findFfmpeg,
-  probe,
+  probePlaylistItem,
+  smartProbe,
   type DownloadChoice,
   type DownloadProgress,
+  type PlaylistEntry,
   type VideoInfo,
 } from './lib/ytdlp.js'
 
@@ -84,11 +87,12 @@ function indeterminateMeta(progress: DownloadProgress): string {
   return `${partLabel(progress)}${bytes.padStart(8)}  ${speed.padEnd(10)}`
 }
 
-export type Outcome = {filepath?: string}
+export type Outcome = {filepaths?: string[]}
 
 type Phase =
   | {name: 'input'; warning?: string}
   | {name: 'probing'; status: string}
+  | {name: 'playlist'; title: string; entries: PlaylistEntry[]; selected: boolean[]}
   | {name: 'picking'}
   | {
       name: 'downloading'
@@ -97,7 +101,7 @@ type Phase =
       processing: boolean
       refreshing?: boolean
     }
-  | {name: 'done'; filepath: string}
+  | {name: 'done'; filepaths: string[]}
   | {name: 'error'; message: string}
 
 const HINTS: Record<Phase['name'], Array<[string, string]>> = {
@@ -107,6 +111,13 @@ const HINTS: Record<Phase['name'], Array<[string, string]>> = {
   ],
   probing: [
     ['esc', 'cancel'],
+    ['^c', 'quit'],
+  ],
+  playlist: [
+    ['↑↓', 'move'],
+    ['␣', 'toggle'],
+    ['↵', 'fetchit'],
+    ['esc', 'back'],
     ['^c', 'quit'],
   ],
   picking: [
@@ -169,6 +180,7 @@ function AppContent({
   const ytdlpRef = useRef('')
   const highlightRef = useRef(0) // choice under the cursor, for the ↵ hint click
   const infoJsonRef = useRef<string | undefined>(undefined)
+  const playlistSelectionRef = useRef<{indices: number[]; title: string} | undefined>(undefined)
   const abortRef = useRef<AbortController | undefined>(undefined)
   const [phase, setPhase] = useState<Phase>(initialUrl ? {name: 'probing', status: 'warming up…'} : {name: 'input'})
 
@@ -188,11 +200,22 @@ function AppContent({
       ytdlpRef.current = ytdlp
       if (controller.signal.aborted) return
       setPhase({name: 'probing', status: 'fetching video info…'})
-      const {info: videoInfo, infoJsonPath} = await probe(ytdlp, targetUrl, controller.signal)
+      const probeResult = await smartProbe(ytdlp, targetUrl, controller.signal)
       if (controller.signal.aborted) return
-      infoJsonRef.current = infoJsonPath
-      setInfo(videoInfo)
-      setChoices(buildChoices(videoInfo))
+      if (probeResult.kind === 'playlist') {
+        // the flat-playlist info.json is only good for the picker, not a download
+        void cleanupProbeInfo(probeResult.infoJsonPath)
+        setPhase({
+          name: 'playlist',
+          title: probeResult.playlist.title,
+          entries: probeResult.playlist.entries,
+          selected: probeResult.playlist.entries.map(() => true),
+        })
+        return
+      }
+      infoJsonRef.current = probeResult.infoJsonPath
+      setInfo(probeResult.info)
+      setChoices(buildChoices(probeResult.info))
       highlightRef.current = 0
       setPhase({name: 'picking'})
     } catch (error) {
@@ -208,6 +231,7 @@ function AppContent({
   const resetToInput = useCallback(() => {
     void cleanupProbeInfo(infoJsonRef.current)
     infoJsonRef.current = undefined
+    playlistSelectionRef.current = undefined
     setUrl('')
     setUrlInput('')
     setPlatform(undefined)
@@ -228,7 +252,7 @@ function AppContent({
         cycleTheme()
         return
       }
-      if (key.escape && (phase.name === 'picking' || phase.name === 'error' || phase.name === 'done')) resetToInput()
+      if (key.escape && (phase.name === 'picking' || phase.name === 'playlist' || phase.name === 'error' || phase.name === 'done')) resetToInput()
       if (key.escape && (phase.name === 'probing' || phase.name === 'downloading')) cancelRun()
       if (key.return && (phase.name === 'error' || phase.name === 'done')) resetToInput()
     },
@@ -248,10 +272,45 @@ function AppContent({
   const clipboardOffered = Boolean(clipboardUrl) && urlInput === ''
   const clipboardAccepted = Boolean(clipboardUrl) && urlInput === clipboardUrl
 
+  const handlePlaylistConfirm = (selectedIndices: number[]) => {
+    if (selectedIndices.length === 0) return
+    const controller = new AbortController()
+    abortRef.current = controller
+    // 1-based for yt-dlp's --playlist-items; keep the title so the format picker
+    // and download header can say "N videos" instead of the first item's title
+    playlistSelectionRef.current = {
+      indices: selectedIndices.map(i => i + 1),
+      title: phase.name === 'playlist' ? phase.title : 'playlist',
+    }
+    void (async () => {
+      try {
+        setPhase({name: 'probing', status: 'fetching format options…'})
+        const ytdlp = ytdlpRef.current
+        if (!ytdlp) throw new Error('yt-dlp not ready')
+        const {info: itemInfo, infoJsonPath} = await probePlaylistItem(
+          ytdlp,
+          url,
+          selectedIndices[0]! + 1,
+          controller.signal,
+        )
+        if (controller.signal.aborted) return
+        infoJsonRef.current = infoJsonPath
+        setInfo(itemInfo)
+        setChoices(buildChoices(itemInfo))
+        highlightRef.current = 0
+        setPhase({name: 'picking'})
+      } catch (error) {
+        if (controller.signal.aborted) return
+        setPhase({name: 'error', message: error instanceof Error ? error.message : String(error)})
+      }
+    })()
+  }
+
   const handlePick = (item: {value: number}) => {
     const choice = choices[item.value]
     const controller = new AbortController()
     abortRef.current = controller
+    const playlist = playlistSelectionRef.current
     setPhase({name: 'downloading', choice, processing: false})
     void (async () => {
       const handlers = {
@@ -263,21 +322,27 @@ function AppContent({
       try {
         const ffmpegLocation = await findFfmpeg()
         const base = {ytdlp: ytdlpRef.current, ffmpegLocation, url, choice, outDir: OUT_DIR}
-        let filepath: string
+        let filepaths: string[]
         try {
-          // reuse the probe's metadata — starts immediately instead of re-extracting
-          filepath = await download({...base, infoJsonPath: infoJsonRef.current}, handlers, controller.signal)
+          // reuse the probe's metadata — starts immediately instead of re-extracting.
+          // playlists never reuse the cached info (one item's info can't serve the
+          // whole list), and use the generic fallbackArgs selector across videos.
+          filepaths = await download(
+            playlist ? {...base, playlist} : {...base, infoJsonPath: infoJsonRef.current},
+            handlers,
+            controller.signal,
+          )
         } catch (error) {
           if (controller.signal.aborted) throw error
           // media urls in the cached info can expire — retry with a fresh extraction
           setPhase(prev =>
             prev.name === 'downloading' ? {...prev, progress: undefined, refreshing: true} : prev,
           )
-          filepath = await download(base, handlers, controller.signal)
+          filepaths = await download(playlist ? {...base, playlist} : base, handlers, controller.signal)
         }
-        onOutcome({filepath})
+        onOutcome({filepaths})
         setHistory(addToHistory(url))
-        setPhase({name: 'done', filepath})
+        setPhase({name: 'done', filepaths})
       } catch (error) {
         if (controller.signal.aborted) return
         setPhase({name: 'error', message: error instanceof Error ? error.message : String(error)})
@@ -384,22 +449,57 @@ function AppContent({
         </Box>
       )}
 
+      {phase.name === 'playlist' && (
+        <Box flexDirection="column" alignItems="center">
+          <Box width={contentWidth}>
+            <Box flexDirection="column" flexGrow={1} flexBasis={0} paddingTop={1} paddingRight={3}>
+              {wrapText(phase.title, Math.max(10, contentWidth - 41)).map((line, index) => (
+                <Text key={index} bold color={theme.primary}>
+                  {line}
+                </Text>
+              ))}
+              <Gap />
+              <Text color={theme.gray} dimColor={theme.dimSecondary}>
+                ▸ {platform?.label ?? 'playlist'} · {phase.entries.length} videos
+              </Text>
+            </Box>
+            <Panel title={`Playlist · ${phase.entries.length}`} width={48}>
+              <MultiSelect
+                items={phase.entries.map(entry => ({
+                  title: entry.title ?? 'untitled',
+                  duration: entry.duration,
+                  uploader: entry.uploader,
+                }))}
+                initialSelected={phase.selected}
+                onConfirm={handlePlaylistConfirm}
+              />
+            </Panel>
+          </Box>
+        </Box>
+      )}
+
       {phase.name === 'picking' && platform && (
         <Box width={contentWidth}>
           <Box flexDirection="column" flexGrow={1} flexBasis={0} paddingTop={1} paddingRight={3}>
             {/* wrapped by hand so continuation lines stay flush left —
                 ink's wrapping keeps the break's space as a 1-cell indent */}
-            {wrapText(info?.title ?? '', Math.max(10, contentWidth - 41)).map((line, index) => (
+            {wrapText(playlistSelectionRef.current?.title ?? info?.title ?? '', Math.max(10, contentWidth - 41)).map((line, index) => (
               <Text key={index} bold color={theme.primary}>
                 {line}
               </Text>
             ))}
             <Gap />
-            <Text color={theme.gray} dimColor={theme.dimSecondary}>
-              ▸ {platform.label}
-              {info?.duration ? ` · ${formatDuration(info.duration)}` : ''}
-              {info?.uploader ? ` · ${info.uploader}` : ''}
-            </Text>
+            {playlistSelectionRef.current ? (
+              <Text color={theme.gray} dimColor={theme.dimSecondary}>
+                ▸ {platform.label} · {playlistSelectionRef.current.indices.length} videos to download
+              </Text>
+            ) : (
+              <Text color={theme.gray} dimColor={theme.dimSecondary}>
+                ▸ {platform.label}
+                {info?.duration ? ` · ${formatDuration(info.duration)}` : ''}
+                {info?.uploader ? ` · ${info.uploader}` : ''}
+              </Text>
+            )}
           </Box>
           <Panel title="Download" width={38}>
             <SelectInput
@@ -420,8 +520,12 @@ function AppContent({
       {phase.name === 'downloading' && (
         <Box flexDirection="column" alignItems="center">
           <Text color={theme.gray} dimColor={theme.dimSecondary}>
-            {info?.title ? `${truncate(info.title, 42)} · ` : ''}
-            {phase.choice.label}
+            {phase.progress && phase.progress.totalItems > 1
+              ? `item ${phase.progress.item}/${phase.progress.totalItems} · `
+              : ''}
+            {playlistSelectionRef.current
+              ? `${truncate(playlistSelectionRef.current.title, 42)} · ${phase.choice.label}`
+              : `${info?.title ? `${truncate(info.title, 42)} · ` : ''}${phase.choice.label}`}
           </Text>
           <Gap />
           {/* every branch is exactly three rows — bar, gap, meta — so the layout never jumps */}
@@ -472,11 +576,25 @@ function AppContent({
 
       {phase.name === 'done' && (
         <Box flexDirection="column" alignItems="center">
-          <Text>
-            <Text bold color={theme.primary}>✓ fetched! </Text>
-            <Text color={theme.primary}>find your file in:</Text>
-          </Text>
-          <Text color={theme.gray} dimColor={theme.dimSecondary}>{shortenPath(phase.filepath, os.homedir(), 60)}</Text>
+          {phase.filepaths.length > 1 ? (
+            <>
+              <Text>
+                <Text bold color={theme.primary}>✓ fetched {phase.filepaths.length} files! </Text>
+                <Text color={theme.primary}>find them in:</Text>
+              </Text>
+              <Text color={theme.gray} dimColor={theme.dimSecondary}>
+                {shortenPath(path.dirname(phase.filepaths[0]!), os.homedir(), 60)}/
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text>
+                <Text bold color={theme.primary}>✓ fetched! </Text>
+                <Text color={theme.primary}>find your file in:</Text>
+              </Text>
+              <Text color={theme.gray} dimColor={theme.dimSecondary}>{shortenPath(phase.filepaths[0]!, os.homedir(), 60)}</Text>
+            </>
+          )}
           <Gap />
           <Box
             borderStyle="round"

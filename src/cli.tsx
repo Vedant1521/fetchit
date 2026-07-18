@@ -1,5 +1,6 @@
 import React from 'react'
 import {createRequire} from 'node:module'
+import path from 'node:path'
 import {render} from 'ink'
 import {App, type Outcome} from './app.js'
 import {captureFrames} from './lib/click-map.js'
@@ -94,6 +95,8 @@ const {waitUntilExit} = render(
 await waitUntilExit()
 
 if (isTTY) leaveAltScreen()
-if (outcome.filepath) {
-  console.log(`✓ fetched → ${outcome.filepath}`)
+if (outcome.filepaths?.length === 1) {
+  console.log(`✓ fetched → ${outcome.filepaths[0]}`)
+} else if (outcome.filepaths?.length) {
+  console.log(`✓ fetched ${outcome.filepaths.length} files → ${path.dirname(outcome.filepaths[0]!)}/`)
 }

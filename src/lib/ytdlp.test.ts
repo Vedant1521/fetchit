@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {buildChoices, type VideoInfo} from './ytdlp.js'
+import {buildChoices, classifyProbe, type VideoInfo} from './ytdlp.js'
 
 const info = (formats: VideoInfo['formats']): VideoInfo => ({title: 'test', formats})
 
@@ -50,4 +50,19 @@ test('audio choice pins bestAudio.format_id and falls back to ba/b on retry', ()
   const audio = choices.find(c => c.kind === 'audio')!
   assert.deepEqual(audio.args, ['-f', '140', '-x', '--audio-format', 'mp3', '--audio-quality', '0'])
   assert.deepEqual(audio.fallbackArgs, ['-f', 'ba/b', '-x', '--audio-format', 'mp3', '--audio-quality', '0'])
+})
+
+test('classifyProbe detects a playlist when entries has more than one item', () => {
+  assert.equal(
+    classifyProbe({title: 'my playlist', entries: [{title: 'a'}, {title: 'b'}, {title: 'c'}]}),
+    'playlist',
+  )
+})
+
+test('classifyProbe treats a single entry as a video, not a playlist', () => {
+  assert.equal(classifyProbe({title: 'solo', entries: [{title: 'only'}]}), 'video')
+})
+
+test('classifyProbe treats a bare video with no entries as a video', () => {
+  assert.equal(classifyProbe({title: 'solo', formats: []}), 'video')
 })

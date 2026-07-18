@@ -110,32 +110,109 @@ export async function cleanupProbeInfo(infoJsonPath?: string): Promise<void> {
 }
 
 export async function probe(ytdlp: string, url: string, signal?: AbortSignal): Promise<ProbeResult> {
-  const stdout = await new Promise<string>((resolve, reject) => {
-    const child = spawn(ytdlp, ['-J', '--no-playlist', '--no-warnings', url], {signal})
-    let out = ''
-    let stderr = ''
-    child.stdout.on('data', chunk => (out += chunk))
-    child.stderr.on('data', chunk => (stderr += chunk))
-    child.on('error', reject)
-    child.on('close', code => {
-      if (code !== 0) {
-        reject(new Error(cleanYtDlpError(stderr) || `yt-dlp exited with code ${code}`))
-      } else {
-        resolve(out)
-      }
-    })
-  })
-
+  const stdout = await runYtDlp(ytdlp, ['-J', '--no-playlist', '--no-warnings', url], signal)
   let info: VideoInfo
   try {
     info = JSON.parse(stdout) as VideoInfo
   } catch {
     throw new Error('Could not parse video info from yt-dlp.')
   }
+  return {info, infoJsonPath: await writeInfoJson(stdout)}
+}
 
+/** Run yt-dlp with -J-style args and resolve its stdout, rejecting on a non-zero exit. */
+function runYtDlp(ytdlp: string, args: string[], signal?: AbortSignal): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(ytdlp, args, {signal})
+    let out = ''
+    let stderr = ''
+    child.stdout.on('data', chunk => (out += chunk))
+    child.stderr.on('data', chunk => (stderr += chunk))
+    child.on('error', reject)
+    child.on('close', code => {
+      if (code !== 0) reject(new Error(cleanYtDlpError(stderr) || `yt-dlp exited with code ${code}`))
+      else resolve(out)
+    })
+  })
+}
+
+async function writeInfoJson(stdout: string): Promise<string> {
   const infoJsonPath = path.join(os.tmpdir(), `fetchit-info-${process.pid}-${Date.now()}.json`)
   await fs.writeFile(infoJsonPath, stdout)
-  return {info, infoJsonPath}
+  return infoJsonPath
+}
+
+export type PlaylistEntry = {
+  id?: string
+  title?: string
+  duration?: number
+  url?: string
+  webpage_url?: string
+  uploader?: string
+}
+
+export type PlaylistInfo = {
+  title: string
+  entries: PlaylistEntry[]
+}
+
+export type SmartProbe =
+  | {kind: 'video'; info: VideoInfo; infoJsonPath: string}
+  | {kind: 'playlist'; playlist: PlaylistInfo; infoJsonPath: string}
+
+/** Classify a yt-dlp -J result as a playlist or a single video (pure, testable). */
+export function classifyProbe(parsed: VideoInfo & {entries?: PlaylistEntry[]}): 'playlist' | 'video' {
+  return Array.isArray(parsed.entries) && parsed.entries.length > 1 ? 'playlist' : 'video'
+}
+
+/**
+ * Probe that auto-detects playlists: a `--flat-playlist` pass is fast even for
+ * big playlists (it lists entries without extracting formats). If the url is a
+ * playlist with >1 entry we keep the flat list for the picker; otherwise the
+ * single-video info is returned (re-extracted fully if flat mode stripped
+ * the formats).
+ */
+export async function smartProbe(ytdlp: string, url: string, signal?: AbortSignal): Promise<SmartProbe> {
+  const stdout = await runYtDlp(ytdlp, ['-J', '--flat-playlist', '--no-warnings', url], signal)
+  let parsed: VideoInfo & {entries?: PlaylistEntry[]}
+  try {
+    parsed = JSON.parse(stdout) as VideoInfo & {entries?: PlaylistEntry[]}
+  } catch {
+    throw new Error('Could not parse video info from yt-dlp.')
+  }
+
+  if (classifyProbe(parsed) === 'playlist') {
+    return {
+      kind: 'playlist',
+      playlist: {title: parsed.title ?? 'playlist', entries: parsed.entries!},
+      infoJsonPath: await writeInfoJson(stdout),
+    }
+  }
+
+  // single video — flat mode usually carries formats; if not, re-extract fully
+  if (parsed.formats && parsed.formats.length > 0) {
+    return {kind: 'video', info: parsed, infoJsonPath: await writeInfoJson(stdout)}
+  }
+  const fallback = await probe(ytdlp, url, signal)
+  return {kind: 'video', info: fallback.info, infoJsonPath: fallback.infoJsonPath}
+}
+
+/** Full info for one playlist entry (by 1-based index), for the format picker. */
+export async function probePlaylistItem(
+  ytdlp: string,
+  url: string,
+  index: number,
+  signal?: AbortSignal,
+): Promise<ProbeResult> {
+  const stdout = await runYtDlp(ytdlp, ['-J', '--no-warnings', '--playlist-items', String(index), url], signal)
+  let parsed: VideoInfo & {entries?: VideoInfo[]}
+  try {
+    parsed = JSON.parse(stdout) as VideoInfo & {entries?: VideoInfo[]}
+  } catch {
+    throw new Error('Could not parse video info from yt-dlp.')
+  }
+  const info = Array.isArray(parsed.entries) ? parsed.entries[0]! : parsed
+  return {info, infoJsonPath: await writeInfoJson(stdout)}
 }
 
 export type DownloadChoice = {
@@ -224,6 +301,10 @@ export type DownloadProgress = {
   part: number
   /** How many files this download resolves to (video+audio merges are 2). */
   totalParts: number
+  /** 1-based index of the current item within a playlist download. */
+  item: number
+  /** Total items in this run (1 for a single video, N for a playlist). */
+  totalItems: number
 }
 
 export type DownloadHandlers = {
@@ -246,16 +327,24 @@ export function download(
     infoJsonPath?: string
     choice: DownloadChoice
     outDir: string
+    /** Playlist mode: download specific items of the playlist url, into a titled subfolder. */
+    playlist?: {indices: number[]}
   },
   handlers: DownloadHandlers,
   signal?: AbortSignal,
-): Promise<string> {
+): Promise<string[]> {
+  const playlist = opts.playlist
   const args = [
-    ...(opts.infoJsonPath ? ['--load-info-json', opts.infoJsonPath] : [opts.url]),
-    // pinned format_ids when the cached info guarantees them, otherwise the
-    // height-bounded selector — a re-extraction may not carry the same ids
-    ...(opts.infoJsonPath ? opts.choice.args : opts.choice.fallbackArgs ?? opts.choice.args),
-    '--no-playlist',
+    // playlist mode always re-extracts from the url (no cached info to reuse);
+    // single-video reuses the probe's metadata when available
+    ...(playlist ? [opts.url] : opts.infoJsonPath ? ['--load-info-json', opts.infoJsonPath] : [opts.url]),
+    // pinned format_ids only apply when the cached info guarantees them — across
+    // separate videos (a playlist) the ids differ, so the generic height-bounded
+    // fallbackArgs selector is the safe choice
+    ...(playlist
+      ? opts.choice.fallbackArgs ?? opts.choice.args
+      : opts.infoJsonPath ? opts.choice.args : opts.choice.fallbackArgs ?? opts.choice.args),
+    ...(playlist ? ['--playlist-items', playlist.indices.join(',')] : ['--no-playlist']),
     '--no-warnings',
     '--newline',
     // --print implies --quiet, which suppresses progress bars and the
@@ -268,7 +357,9 @@ export function download(
     'after_move:filepath',
     '--no-simulate',
     '-o',
-    path.join(opts.outDir, '%(title).60s.%(ext)s'),
+    playlist
+      ? path.join(opts.outDir, '%(playlist_title).80B', '%(playlist_index)02d-%(title).60s.%(ext)s')
+      : path.join(opts.outDir, '%(title).60s.%(ext)s'),
   ]
   if (opts.ffmpegLocation) args.push('--ffmpeg-location', opts.ffmpegLocation)
 
@@ -277,9 +368,11 @@ export function download(
     activeChild = child
 
     let stderr = ''
-    let filepath = ''
+    const filepaths: string[] = []
     let part = 0
     let totalParts = 1
+    let item = 1
+    const totalItems = playlist?.indices.length ?? 1
     let lastDownloaded = 0
     let buffer = ''
     // every file yt-dlp writes this run, so a cancel can clean up after itself
@@ -304,10 +397,20 @@ export function download(
             eta: toNumber(eta),
             part,
             totalParts,
+            item,
+            totalItems,
           })
         } else if (line.includes('Downloading 1 format(s):')) {
           // "[info] xxx: Downloading 1 format(s): 395+251" — each id is one file
           totalParts = (line.split('format(s):')[1] ?? '').trim().split('+').length
+        } else if (line.startsWith('[download] Downloading item ')) {
+          // "[download] Downloading item 3 of 12" — a new playlist item starts
+          const m = /Downloading item (\d+) of (\d+)/.exec(line)
+          if (m) {
+            item = Number(m[1])
+            part = 0
+            lastDownloaded = 0
+          }
         } else if (line.includes('[Merger]') || line.includes('[ExtractAudio]')) {
           const merging = /^\[Merger\] Merging formats into "(.+)"$/.exec(line)?.[1]
           const extracting = /^\[ExtractAudio\] Destination: (.+)$/.exec(line)?.[1]
@@ -317,7 +420,7 @@ export function download(
         } else if (line.startsWith('[download] Destination: ')) {
           destinations.push(line.slice('[download] Destination: '.length))
         } else if (path.isAbsolute(line)) {
-          filepath = line
+          filepaths.push(line)
         }
       }
     })
@@ -331,8 +434,8 @@ export function download(
         reject(new Error('Download cancelled.'))
         return
       }
-      if (code === 0 && filepath) {
-        resolve(filepath)
+      if (code === 0 && filepaths.length > 0) {
+        resolve(filepaths)
       } else {
         reject(new Error(cleanYtDlpError(stderr) || `Download failed (yt-dlp exit code ${code}).`))
       }
