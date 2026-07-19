@@ -308,6 +308,12 @@ npm test             # tsx --test src/**/*.test.ts
 To try it as a global command without publishing: `npm link`, then run
 `fetchit` anywhere.
 
+## Contributing
+
+Bug reports, feature suggestions, and pull requests are welcome. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the conventions, the PR process,
+and what needs help.
+
 ## Roadmap
 
 - [x] `--best` / `--mp3` flags to skip the picker (scriptable mode)
