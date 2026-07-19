@@ -22,6 +22,10 @@ export type CliArgs = {
   from?: string
   /** Download only a time range — end endpoint. */
   to?: string
+  /** Parallel playlist downloads — number of concurrent items (default 3, 1 for YouTube). */
+  concurrency?: number
+  /** Pass browser cookies to yt-dlp for authenticated downloads (e.g. "chrome", "firefox"). */
+  cookiesFromBrowser?: string
   error?: string
 }
 
@@ -81,6 +85,23 @@ export function parseArgs(args: string[]): CliArgs {
       const normalized = normalizeTime(value)
       if (!normalized) return {...result, error: `--to “${value}” isn’t a valid time — use MM:SS or HH:MM:SS`}
       result.to = normalized
+    } else if (arg === '--concurrency') {
+      const value = args[++index]
+      if (!value) return {...result, error: '--concurrency needs a number (e.g. 3)'}
+      const n = Number.parseInt(value, 10)
+      if (!Number.isFinite(n) || n < 1) return {...result, error: `--concurrency “${value}” isn’t a positive number`}
+      result.concurrency = n
+    } else if (arg.startsWith('--concurrency=')) {
+      const value = arg.slice('--concurrency='.length)
+      const n = Number.parseInt(value, 10)
+      if (!Number.isFinite(n) || n < 1) return {...result, error: `--concurrency “${value}” isn’t a positive number`}
+      result.concurrency = n
+    } else if (arg === '--cookies-from-browser') {
+      const value = args[++index]
+      if (!value) return {...result, error: '--cookies-from-browser needs a browser name (chrome, firefox, edge, safari, brave, opera)'}
+      result.cookiesFromBrowser = value
+    } else if (arg.startsWith('--cookies-from-browser=')) {
+      result.cookiesFromBrowser = arg.slice('--cookies-from-browser='.length)
     } else if (arg === '-o' || arg === '--output') {
       const value = args[++index]
       if (!value) return {...result, error: `${arg} needs a directory path`}

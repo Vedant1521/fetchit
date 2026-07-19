@@ -29,29 +29,93 @@ reasons:
 ### The site changed its layout
 
 yt-dlp breaks when sites (especially YouTube) update their player. The fix
-is almost always to **update yt-dlp**.
-
-**If you're using the auto-fetched binary** (fetchit downloaded it for
-you):
+is almost always to **update yt-dlp** — run `fetchit update` (or press
+`[U]` inside the TUI):
 
 ```sh
-yt-dlp -U
+fetchit update
 ```
 
-Run this in your terminal. It updates the binary at `~/.fetchit/bin/yt-dlp`
-(or `yt-dlp.exe` on Windows). Then try fetchit again.
-
-**If you have yt-dlp installed system-wide**, update it through your
-package manager (pip, brew, etc.):
+This updates the bundled binary at `~/.fetchit/bin/yt-dlp`. If you have
+yt-dlp installed system-wide, update it through your package manager:
 ```sh
 pip install -U yt-dlp
 # or
 brew upgrade yt-dlp
+# or
+winget upgrade yt-dlp
 ```
+
+### "Sign in to confirm you're not a bot"
+
+YouTube increasingly requires authentication to download certain videos and
+playlists. If you see this error, there are **three things that could be
+going on** — try them in order:
+
+#### 1. Your IP got temporarily flagged (most common)
+
+YouTube rate-limits IPs that download a lot in a short time. If you
+downloaded several videos today, YouTube may have flagged your IP. The fix
+is simple:
+
+- **Wait 24-48 hours** — the flag resets on its own
+- **Use a VPN** — connect to any VPN server (different IP) and retry; this
+  works immediately
+- **Use a mobile hotspot** — connect your PC to your phone's hotspot for a
+  different IP
+
+You don't need cookies for this — just a different IP.
+
+#### 2. The video requires sign-in (cookies)
+
+Some videos genuinely require a logged-in YouTube account to download. Pass
+your browser cookies so yt-dlp authenticates as you:
+
+```sh
+fetchit --cookies-from-browser firefox https://youtube.com/…
+```
+
+**From inside the TUI:** when you see the "sign in to confirm" error, press
+`[B]` — a browser picker appears. Press `1` (chrome), `2` (firefox),
+`3` (edge), `4` (brave), or `5` (safari) to retry with that browser's
+cookies, without leaving fetchit.
+
+**Requirements for cookies to work:**
+- You must be **logged into YouTube in that browser** (go to youtube.com,
+  sign in, then close the browser)
+- The browser must be **fully closed** while downloading — Windows locks
+  the cookie database while the browser is running
+
+#### 3. Windows cookie encryption (Chrome and Edge)
+
+**Chrome 127+ and Edge on Windows encrypt their cookie databases** with
+DPAPI/App-Bound Encryption. yt-dlp can't decrypt them — even when the
+browser is closed. You'll see errors like:
+- `Could not copy Chrome cookie database`
+- `Failed to decrypt with DPAPI`
+
+**The fix:** use **Firefox** instead. Firefox doesn't encrypt its cookies on
+Windows, so yt-dlp can read them reliably.
+
+```sh
+# install Firefox if you don't have it:
+winget install Mozilla.Firefox
+# then log into YouTube in Firefox, close Firefox, and run:
+fetchit --cookies-from-browser firefox https://youtube.com/…
+```
+
+### "Requested format is not available"
+
+**What it means:** YouTube accepted your cookies but returned a degraded
+set of formats (no video/audio, just storyboard thumbnails). This happens
+when YouTube's anti-bot system partially blocks you even with cookies.
+
+**Fix:** try a VPN (different IP) or wait 24 hours for the block to reset.
+This is a YouTube-side restriction, not a fetchit or yt-dlp bug.
 
 ### The url is private or geo-blocked
 
-- Private videos need authentication (fetchit doesn't support this yet)
+- Private videos need authentication — use `--cookies-from-browser` (above)
 - Some videos are blocked in your region — try a VPN or a different url
 
 ### The url is invalid
@@ -160,6 +224,31 @@ ffmpeg -version
 If you don't install ffmpeg, fetchit uses a bundled fallback
 (`ffmpeg-static`). This works for most cases but may be slower or missing
 on unusual platforms.
+
+---
+
+## "EPERM: operation not permitted, rename" (Windows)
+
+**What it means:** Windows Defender or your antivirus is scanning the
+freshly-downloaded `yt-dlp.exe` and holding a lock on it, blocking the
+file rename. This usually happens on first run or after an update.
+
+**Fix:**
+1. Close any stuck processes:
+   ```sh
+   taskkill /f /im yt-dlp.exe
+   taskkill /f /im ffmpeg.exe
+   ```
+2. Delete the leftover temp files:
+   ```sh
+   del "C:\Users\<you>\.fetchit\bin\*.download"
+   del "C:\Users\<you>\.fetchit\bin\yt-dlp.exe"
+   ```
+3. Run fetchit again — it re-downloads the binary and retries the rename
+   up to 5 times with delays to let the AV scan finish
+
+fetchit has built-in retry logic for this, so it usually self-heals. If it
+keeps happening, add `~/.fetchit/bin` to your antivirus exclusions.
 
 ---
 
@@ -297,6 +386,10 @@ fetchit update
 This runs `yt-dlp -U` on the bundled binary at `~/.fetchit/bin/yt-dlp` and
 prints the new version. One command, no hunting for files.
 
+**From inside the TUI:** press `[U]` at any non-busy screen (input, picker,
+playlist, done, error) to update without leaving fetchit. You'll see an
+inline spinner and success message.
+
 **If you installed yt-dlp yourself** (system install on your PATH):
 ```sh
 pip install -U yt-dlp
@@ -307,6 +400,45 @@ winget upgrade yt-dlp
 ```
 fetchit detects system yt-dlp and tells you to update it this way — it
 can't update a system install itself.
+
+---
+
+## YouTube downloads stopped working suddenly
+
+**What it means:** Downloads worked earlier today but now fail with "sign
+in to confirm you're not a bot" or "requested format is not available".
+
+**This is almost always YouTube flagging your IP** — not a fetchit bug.
+YouTube's anti-bot system rate-limits IPs that download multiple videos in
+quick succession. It happens in waves and resets on its own.
+
+**Fixes (in order of effectiveness):**
+
+1. **Use a VPN** — connect to any VPN server (different IP) and retry.
+   This works immediately. Free option: ProtonVPN.
+2. **Use a mobile hotspot** — connect your PC to your phone's hotspot for
+   a different IP. Free and instant.
+3. **Wait 24-48 hours** — stop downloading from your home IP for a day and
+   YouTube's flag resets automatically.
+4. **Pass cookies** — `fetchit --cookies-from-browser firefox <url>` (see
+   the "Sign in to confirm" section above for full instructions)
+
+**To prevent it from happening again:**
+- Don't download large playlists all at once on YouTube
+- Space out downloads (wait a few minutes between videos)
+- Use cookies for authenticated requests
+- Keep yt-dlp updated (`fetchit update`)
+
+**How to confirm it's your IP (not fetchit):**
+```sh
+# this probably fails (your IP is flagged):
+fetchit https://www.youtube.com/watch?v=SOME_BOT_CHECKED_VIDEO 144p
+
+# this probably works (YouTube doesn't bot-check this video):
+fetchit https://youtu.be/dQw4w9WgXcQ 144p
+```
+
+If the second command works, fetchit is fine — your IP just needs a break.
 
 ---
 

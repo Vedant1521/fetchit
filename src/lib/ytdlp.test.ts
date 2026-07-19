@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {buildChoices, classifyProbe, pickChoice, pickChoiceByLabel, type VideoInfo} from './ytdlp.js'
+import {buildChoices, classifyProbe, pickChoice, pickChoiceByLabel, workerCount, type VideoInfo} from './ytdlp.js'
 
 const info = (formats: VideoInfo['formats']): VideoInfo => ({title: 'test', formats})
 
@@ -124,4 +124,13 @@ test('pickChoiceByLabel throws when no format matches the query', () => {
     {format_id: '140', vcodec: 'none', acodec: 'mp4a', abr: 128, filesize: 3_000_000, tbr: 130},
   ])
   assert.throws(() => pickChoiceByLabel(data, '4k'), /no format matching/)
+})
+
+test('workerCount caps at the item count and the concurrency limit', () => {
+  assert.equal(workerCount(12), 3)        // 12 items, default concurrency 3 → 3 workers
+  assert.equal(workerCount(2), 2)         // 2 items → only 2 workers (no idle workers)
+  assert.equal(workerCount(1), 1)         // single item → 1 worker
+  assert.equal(workerCount(12, 5), 5)     // higher concurrency → 5 workers
+  assert.equal(workerCount(3, 10), 3)     // concurrency > items → capped at items
+  assert.equal(workerCount(0), 1)         // edge: 0 items → at least 1 (won't be used)
 })

@@ -69,6 +69,19 @@ no sketchy redirects.
   Media Player doesn't support them), and `--from`/`--to` download just a
   clip from a long video. Toggle both live in the picker with `[C]` and
   `[T]`.
+- **parallel playlist downloads** — playlist items download 3 at a time
+  instead of one-by-one, cutting a 12-video playlist from ~30 min to
+  ~10 min. The progress UI shows all active bars at once. YouTube is
+  auto-sequential (it throttles parallel streams); override with
+  `--concurrency N`.
+- **cookie authentication** — `--cookies-from-browser firefox <url>` passes
+  your browser cookies to yt-dlp for age-restricted or bot-checked videos.
+  Inside the TUI, press `[B]` on the error screen to pick a browser and
+  retry without leaving fetchit. On Windows, use Firefox (Chrome and Edge
+  encrypt their cookies — see [Troubleshooting](./docs/troubleshooting.md)).
+- **self-update** — `fetchit update` updates the bundled yt-dlp binary in
+  place, or press `[U]` inside the TUI. The one-command fix for when
+  downloads stop working because yt-dlp is stale.
 
 ## 📚 Documentation
 
@@ -199,6 +212,8 @@ support section splitting.
 | `--chapters` | embed YouTube chapter markers into the output file |
 | `--from <time>` | download from this point (`MM:SS` or `HH:MM:SS`) |
 | `--to <time>` | download up to this point (`MM:SS` or `HH:MM:SS`) |
+| `--concurrency <n>` | parallel playlist downloads (default 3; YouTube auto-sequential) |
+| `--cookies-from-browser <browser>` | use browser cookies for authenticated downloads (chrome, firefox, edge, safari, brave) |
 | `-o`, `--output <dir>` | save into `<dir>` instead of `~/Downloads` |
 | `--theme <mode>` | start in `auto`, `light`, or `dark` for this run |
 | `--theme=<mode>` | equals form, useful after the url |

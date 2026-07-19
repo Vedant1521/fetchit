@@ -22,6 +22,7 @@ import {
   buildChoices,
   cleanupProbeInfo,
   download,
+  downloadPlaylistParallel,
   ensureYtDlp,
   findFfmpeg,
   normalizeTime,
@@ -89,6 +90,44 @@ function indeterminateMeta(progress: DownloadProgress): string {
   return `${partLabel(progress)}${bytes.padStart(8)}  ${speed.padEnd(10)}`
 }
 
+/** Detect common yt-dlp errors and append a plain-English hint. */
+function friendlyError(message: string): {message: string; needsAuth: boolean} {
+  const browserFromMessage = (msg: string): string =>
+    /chrome|chromium/i.test(msg) ? 'Chrome'
+      : /firefox/i.test(msg) ? 'Firefox'
+      : /edge/i.test(msg) ? 'Edge'
+      : /brave/i.test(msg) ? 'Brave'
+      : /safari/i.test(msg) ? 'Safari'
+      : 'your browser'
+
+  // DPAPI / App-Bound Encryption — Chrome 127+ on Windows encrypts cookies with
+  // ABE, which yt-dlp can't decrypt. Closing the browser won't help; the only
+  // fix is a different browser whose cookies aren't ABE-protected.
+  if (/dpapi|app.?bound.*encrypt|failed to decrypt/i.test(message)) {
+    const browser = browserFromMessage(message)
+    return {
+      message: `${message}\n\n${browser} encrypts its cookies on Windows in a way fetchit can't read. Press [Enter] to retry without cookies, or [B] to try a different browser (Firefox or Edge usually work).`,
+      needsAuth: true,
+    }
+  }
+  // cookie DB locked — the browser is still running and holds the file
+  if (/could not copy.*cookie.*database|cookie.*database.*locked|unable to copy.*cookie/i.test(message)) {
+    const browser = browserFromMessage(message)
+    return {
+      message: `${message}\n\nfix: fully quit ${browser} (check your taskbar / task manager for background processes), then press [Enter] to try again. Or press [B] to use a different browser you're logged into.`,
+      needsAuth: true,
+    }
+  }
+  // YouTube sign-in wall
+  if (/sign in to confirm|not a bot|cookies.*from.*browser/i.test(message)) {
+    return {
+      message: `${message}\n\nfix: press [B] to retry with your browser cookies (pick a browser you're logged into YouTube with).`,
+      needsAuth: true,
+    }
+  }
+  return {message, needsAuth: false}
+}
+
 export type Outcome = {filepaths?: string[]}
 
 type Phase =
@@ -104,7 +143,7 @@ type Phase =
       refreshing?: boolean
     }
   | {name: 'done'; filepaths: string[]}
-  | {name: 'error'; message: string}
+  | {name: 'error'; message: string; needsAuth?: boolean; pickingBrowser?: boolean}
 
 const HINTS: Record<Phase['name'], Array<[string, string]>> = {
   input: [
@@ -142,6 +181,7 @@ const HINTS: Record<Phase['name'], Array<[string, string]>> = {
     ['[Enter]', 'try again'],
     ['[Esc]', 'back'],
     ['[U]', 'update'],
+    ['[B]', 'retry with cookies'],
     ['[Ctrl+C]', 'quit'],
   ],
 }
@@ -151,10 +191,12 @@ type AppProps = {
   clipboardUrl?: string
   initialThemeMode?: ThemeMode
   outputDir?: string
+  concurrency?: number
+  cookiesFromBrowser?: string
   onOutcome: (outcome: Outcome) => void
 }
 
-export function App({initialThemeMode = 'auto', outputDir, ...props}: AppProps) {
+export function App({initialThemeMode = 'auto', outputDir, concurrency, cookiesFromBrowser, ...props}: AppProps) {
   const [themeMode, setThemeMode] = useState(initialThemeMode)
   const cycleTheme = useCallback(() => {
     setThemeMode(nextThemeMode)
@@ -162,7 +204,7 @@ export function App({initialThemeMode = 'auto', outputDir, ...props}: AppProps) 
 
   return (
     <ThemeProvider mode={themeMode}>
-      <AppContent {...props} outputDir={outputDir} cycleTheme={cycleTheme} />
+      <AppContent {...props} outputDir={outputDir} concurrency={concurrency} cookiesFromBrowser={cookiesFromBrowser} cycleTheme={cycleTheme} />
     </ThemeProvider>
   )
 }
@@ -171,12 +213,16 @@ function AppContent({
   initialUrl,
   clipboardUrl,
   outputDir,
+  concurrency,
+  cookiesFromBrowser,
   onOutcome,
   cycleTheme,
 }: {
   initialUrl?: string
   clipboardUrl?: string
   outputDir?: string
+  concurrency?: number
+  cookiesFromBrowser?: string
   onOutcome: (outcome: Outcome) => void
   cycleTheme: () => void
 }) {
@@ -188,6 +234,7 @@ function AppContent({
   const [history, setHistory] = useState(loadHistory)
   const [platform, setPlatform] = useState<Platform>()
   const [info, setInfo] = useState<VideoInfo>()
+  const [cookies, setCookies] = useState(cookiesFromBrowser)
   const [choices, setChoices] = useState<DownloadChoice[]>([])
   const ytdlpRef = useRef('')
   const highlightRef = useRef(0) // choice under the cursor, for the ↵ hint click
@@ -206,7 +253,7 @@ function AppContent({
   const boxWidth = Math.max(14, Math.min(64, columns - 6))
   const contentWidth = Math.max(10, Math.min(columns - 4, 78))
 
-  const startProbe = useCallback(async (targetUrl: string) => {
+  const startProbe = useCallback(async (targetUrl: string, cookieSource?: string) => {
     const controller = new AbortController()
     abortRef.current = controller
     setPlatform(detectPlatform(targetUrl))
@@ -218,7 +265,7 @@ function AppContent({
       ytdlpRef.current = ytdlp
       if (controller.signal.aborted) return
       setPhase({name: 'probing', status: 'fetching video info…'})
-      const probeResult = await smartProbe(ytdlp, targetUrl, controller.signal)
+      const probeResult = await smartProbe(ytdlp, targetUrl, controller.signal, cookieSource ?? cookies)
       if (controller.signal.aborted) return
       if (probeResult.kind === 'playlist') {
         // the flat-playlist info.json is only good for the picker, not a download
@@ -238,7 +285,10 @@ function AppContent({
       setPhase({name: 'picking'})
     } catch (error) {
       if (controller.signal.aborted) return
-      setPhase({name: 'error', message: error instanceof Error ? error.message : String(error)})
+      setPhase(() => {
+        const {message, needsAuth} = friendlyError(error instanceof Error ? error.message : String(error))
+        return {name: 'error' as const, message, needsAuth}
+      })
     }
   }, [])
 
@@ -259,8 +309,11 @@ function AppContent({
     setPlatform(undefined)
     setInfo(undefined)
     setChoices([])
+    // clear a browser picked via [B] so a plain retry doesn't keep using
+    // cookies that fail (e.g. Chrome's DPAPI/App-Bound Encryption on Windows)
+    setCookies(cookiesFromBrowser)
     setPhase({name: 'input'})
-  }, [])
+  }, [cookiesFromBrowser])
 
   const cancelRun = useCallback(() => {
     abortRef.current?.abort()
@@ -294,10 +347,30 @@ function AppContent({
       }
       if (key.escape && (phase.name === 'picking' || phase.name === 'playlist' || phase.name === 'error' || phase.name === 'done')) resetToInput()
       if (key.escape && (phase.name === 'probing' || phase.name === 'downloading')) cancelRun()
+      if (key.escape && phase.name === 'error' && phase.pickingBrowser) {
+        setPhase({name: 'error', message: phase.message, needsAuth: phase.needsAuth})
+        return
+      }
       if (key.escape && phase.name === 'picking' && phase.timeInput) {
         setPhase({name: 'picking'})
         setTimeInputValue('')
         return
+      }
+      // [B] retry with browser cookies — only on auth errors
+      if ((input === 'b' || input === 'B') && phase.name === 'error' && phase.needsAuth && !phase.pickingBrowser) {
+        setPhase({name: 'error', message: phase.message, needsAuth: true, pickingBrowser: true})
+        return
+      }
+      // browser picker: number keys 1-5 select a browser
+      if (phase.name === 'error' && phase.pickingBrowser) {
+        const browsers = ['chrome', 'firefox', 'edge', 'brave', 'safari']
+        const idx = Number.parseInt(input, 10) - 1
+        if (idx >= 0 && idx < browsers.length) {
+          const browser = browsers[idx]!
+          setCookies(browser)
+          void startProbe(url, browser)
+          return
+        }
       }
       if (key.return && (phase.name === 'error' || phase.name === 'done')) resetToInput()
       // picking-phase toggles for chapters and time range — only when the time
@@ -382,6 +455,7 @@ function AppContent({
           url,
           selectedIndices[0]! + 1,
           controller.signal,
+          cookies,
         )
         if (controller.signal.aborted) return
         infoJsonRef.current = infoJsonPath
@@ -391,7 +465,10 @@ function AppContent({
         setPhase({name: 'picking'})
       } catch (error) {
         if (controller.signal.aborted) return
-        setPhase({name: 'error', message: error instanceof Error ? error.message : String(error)})
+        setPhase(() => {
+        const {message, needsAuth} = friendlyError(error instanceof Error ? error.message : String(error))
+        return {name: 'error' as const, message, needsAuth}
+      })
       }
     })()
   }
@@ -419,31 +496,43 @@ function AppContent({
           outDir: outputDir ?? OUT_DIR,
           chapters,
           sections: timeRange,
+          cookiesFromBrowser: cookies,
         }
         let filepaths: string[]
         try {
-          // reuse the probe's metadata — starts immediately instead of re-extracting.
-          // playlists never reuse the cached info (one item's info can't serve the
-          // whole list), and use the generic fallbackArgs selector across videos.
-          filepaths = await download(
-            playlist ? {...base, playlist} : {...base, infoJsonPath: infoJsonRef.current},
-            handlers,
-            controller.signal,
-          )
+          if (playlist) {
+            // playlist: download items concurrently (3 for non-YouTube, 1 for YouTube
+            // which throttles parallel streams) for a speedup on sites that allow it
+            filepaths = await downloadPlaylistParallel(
+              {...base, indices: playlist.indices, concurrency},
+              handlers,
+              controller.signal,
+            )
+          } else {
+            // single video: reuse the probe's metadata — starts immediately
+            filepaths = await download({...base, infoJsonPath: infoJsonRef.current}, handlers, controller.signal)
+          }
         } catch (error) {
           if (controller.signal.aborted) throw error
           // media urls in the cached info can expire — retry with a fresh extraction
           setPhase(prev =>
             prev.name === 'downloading' ? {...prev, progress: undefined, refreshing: true} : prev,
           )
-          filepaths = await download(playlist ? {...base, playlist} : base, handlers, controller.signal)
+          if (playlist) {
+            filepaths = await downloadPlaylistParallel({...base, indices: playlist.indices, concurrency}, handlers, controller.signal)
+          } else {
+            filepaths = await download(base, handlers, controller.signal)
+          }
         }
         onOutcome({filepaths})
         setHistory(addToHistory(url))
         setPhase({name: 'done', filepaths})
       } catch (error) {
         if (controller.signal.aborted) return
-        setPhase({name: 'error', message: error instanceof Error ? error.message : String(error)})
+        setPhase(() => {
+        const {message, needsAuth} = friendlyError(error instanceof Error ? error.message : String(error))
+        return {name: 'error' as const, message, needsAuth}
+      })
       } finally {
         void cleanupProbeInfo(infoJsonRef.current)
         infoJsonRef.current = undefined
@@ -455,6 +544,14 @@ function AppContent({
   if (phase.name === 'input' && history.length > 0) {
     hints = [hints[0]!, ['[↑]', 'history'], ...hints.slice(1)]
   }
+  // hide the [B] retry-with-cookies hint unless this is an auth error
+  if (phase.name === 'error' && !phase.needsAuth) {
+    hints = hints.filter(([key]) => key !== '[B]')
+  }
+  // hide [B] once the browser picker is open (number keys take over)
+  if (phase.name === 'error' && phase.pickingBrowser) {
+    hints = hints.filter(([key]) => key !== '[B]')
+  }
 
   // Anything a mouse user would expect to press is clickable. Targets are
   // found by their text in the rendered frame (see lib/click-map.ts), so
@@ -463,6 +560,9 @@ function AppContent({
     if (key === '[Ctrl+C]') return () => exit()
     if (key === '[Ctrl+T]') return cycleTheme
     if (key === '[U]') return triggerUpdate
+    if (key === '[B]') return phase.name === 'error' && phase.needsAuth
+      ? () => setPhase({name: 'error', message: phase.message, needsAuth: true, pickingBrowser: true})
+      : undefined
     if (key === '[Esc]') return phase.name === 'probing' || phase.name === 'downloading' ? cancelRun : resetToInput
     if (key === '[Enter]') {
       if (phase.name === 'input') return () => handleUrlSubmit(urlInput)
@@ -640,16 +740,36 @@ function AppContent({
       {phase.name === 'downloading' && (
         <Box flexDirection="column" alignItems="center">
           <Text color={theme.gray} dimColor={theme.dimSecondary}>
-            {phase.progress && phase.progress.totalItems > 1
-              ? `item ${phase.progress.item}/${phase.progress.totalItems} · `
-              : ''}
+            {phase.progress?.activeItems?.length
+              ? `${phase.progress.completedItems ?? 0}/${phase.progress.totalItems} done · `
+              : phase.progress && phase.progress.totalItems > 1
+                ? `item ${phase.progress.item}/${phase.progress.totalItems} · `
+                : ''}
             {playlistSelectionRef.current
               ? `${truncate(playlistSelectionRef.current.title, 42)} · ${phase.choice.label}`
               : `${info?.title ? `${truncate(info.title, 42)} · ` : ''}${phase.choice.label}`}
           </Text>
           <Gap />
-          {/* every branch is exactly three rows — bar, gap, meta — so the layout never jumps */}
-          {phase.processing ? (
+          {/* parallel playlist: one bar per active download */}
+          {phase.progress?.activeItems?.length ? (
+            <Box flexDirection="column">
+              {phase.progress.activeItems.map(item => (
+                <Box key={item.index} flexDirection="column">
+                  <Text color={theme.gray} dimColor={theme.dimSecondary}>
+                    {`item ${item.index}  `}
+                    {item.processing ? 'processing…' : item.totalBytes
+                      ? `${Math.round((item.downloadedBytes / item.totalBytes) * 100)}%`
+                      : `${formatBytes(item.downloadedBytes)}`}
+                    {item.speed ? `  ${formatSpeed(item.speed)}` : ''}
+                  </Text>
+                  <ProgressBar
+                    percent={item.totalBytes ? item.downloadedBytes / item.totalBytes : 0}
+                    width={24}
+                  />
+                </Box>
+              ))}
+            </Box>
+          ) : /* single download: the existing bar/spinner branches */ phase.processing ? (
             <>
               <ProgressBar percent={1} />
               <Gap />
@@ -730,7 +850,24 @@ function AppContent({
 
       {phase.name === 'error' && (
         <Box flexDirection="column" alignItems="center" width={Math.max(10, Math.min(columns - 6, 72))}>
-          <Text bold color={theme.primary}>✗ {phase.message}</Text>
+          {phase.message.split('\n').map((line, i) => (
+            <Text key={i} bold={i === 0} color={i === 0 ? theme.primary : theme.gray} dimColor={i > 0 && theme.dimSecondary}>
+              {i === 0 ? `✗ ${line}` : line}
+            </Text>
+          ))}
+          {phase.pickingBrowser ? (
+            <>
+              <Gap />
+              <Text color={theme.gray} dimColor={theme.dimSecondary}>pick a browser you're logged into YouTube with:</Text>
+              <Text color={theme.primary}>{'  1'}  chrome</Text>
+              <Text color={theme.primary}>{'  2'}  firefox</Text>
+              <Text color={theme.primary}>{'  3'}  edge</Text>
+              <Text color={theme.primary}>{'  4'}  brave</Text>
+              <Text color={theme.primary}>{'  5'}  safari</Text>
+              <Gap />
+              <Text color={theme.gray} dimColor={theme.dimSecondary}>[Esc] back</Text>
+            </>
+          ) : null}
         </Box>
       )}
 

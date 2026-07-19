@@ -165,6 +165,68 @@ When in doubt, just paste the url. fetchit figures it out.
 
 ---
 
+## Parallel downloads (3 at a time)
+
+Playlist items download **3 at a time** instead of one-by-one. This cuts
+the total time roughly 3x — a 12-video playlist at 1080p that took ~30
+minutes sequentially finishes in ~10 minutes.
+
+### Interactive mode
+
+During the download, the header shows how many items are done:
+```
+3/12 done · My Playlist · 1080p
+```
+
+Below it, one progress bar per active download:
+```
+item 2  80%  400 KB/s
+████████░░
+item 5  50%  300 KB/s
+█████░░░░░
+item 8  20%  150 KB/s
+██░░░░░░░░
+```
+
+When one item finishes, the next pending one starts automatically. Press
+`[Esc]` to cancel — all in-flight downloads are aborted and partial files
+cleaned up.
+
+### Scriptable mode
+
+Same parallelism — `fetchit --best <playlist-url>` downloads 3 items at a
+time. The dot progress output shows all three streams interleaved:
+```
+.........|....|..||..........|....|
+✓ fetched 12 files → ~/Downloads/My Playlist/
+```
+
+### YouTube is auto-sequential
+
+YouTube aggressively throttles parallel downloads — when one client opens
+multiple video streams at the same time, YouTube rate-limits all of them so
+hard that 3 parallel can end up **slower** than 1-at-a-time sequential.
+
+fetchit detects YouTube urls automatically and downloads playlist items
+**one at a time** (full speed per item) unless you override it. Other sites
+(Instagram, TikTok, Vimeo, etc.) don't throttle, so the default 3-concurrent
+speedup works there.
+
+### Overriding with `--concurrency`
+
+Force a specific concurrency level (scriptable mode only):
+
+```sh
+fetchit --best --concurrency 5 https://youtube.com/playlist?list=…   # force 5 parallel on YouTube
+fetchit --best --concurrency 1 https://vimeo.com/…                   # force sequential on Vimeo
+```
+
+`--concurrency` accepts any positive integer. Values above ~8 risk getting
+blocked by site anti-abuse systems. The default (no flag) is 3 for non-YouTube
+and 1 for YouTube.
+
+---
+
 ## Tips
 
 - **Start with a small playlist** to test (3-5 videos). Big playlists take

@@ -195,8 +195,13 @@ export async function cleanupProbeInfo(infoJsonPath?: string): Promise<void> {
   await fs.rm(infoJsonPath, {force: true})
 }
 
-export async function probe(ytdlp: string, url: string, signal?: AbortSignal): Promise<ProbeResult> {
-  const stdout = await runYtDlp(ytdlp, ['-J', '--no-playlist', '--no-warnings', url], signal)
+export async function probe(
+  ytdlp: string,
+  url: string,
+  signal?: AbortSignal,
+  cookiesFromBrowser?: string,
+): Promise<ProbeResult> {
+  const stdout = await runYtDlp(ytdlp, ['-J', '--no-playlist', '--no-warnings', ...cookieArgs(cookiesFromBrowser), url], signal)
   let info: VideoInfo
   try {
     info = JSON.parse(stdout) as VideoInfo
@@ -220,6 +225,11 @@ function runYtDlp(ytdlp: string, args: string[], signal?: AbortSignal): Promise<
       else resolve(out)
     })
   })
+}
+
+/** Build the --cookies-from-browser args if a browser was specified. */
+function cookieArgs(cookiesFromBrowser?: string): string[] {
+  return cookiesFromBrowser ? ['--cookies-from-browser', cookiesFromBrowser] : []
 }
 
 async function writeInfoJson(stdout: string): Promise<string> {
@@ -258,8 +268,13 @@ export function classifyProbe(parsed: VideoInfo & {entries?: PlaylistEntry[]}): 
  * single-video info is returned (re-extracted fully if flat mode stripped
  * the formats).
  */
-export async function smartProbe(ytdlp: string, url: string, signal?: AbortSignal): Promise<SmartProbe> {
-  const stdout = await runYtDlp(ytdlp, ['-J', '--flat-playlist', '--no-warnings', url], signal)
+export async function smartProbe(
+  ytdlp: string,
+  url: string,
+  signal?: AbortSignal,
+  cookiesFromBrowser?: string,
+): Promise<SmartProbe> {
+  const stdout = await runYtDlp(ytdlp, ['-J', '--flat-playlist', '--no-warnings', ...cookieArgs(cookiesFromBrowser), url], signal)
   let parsed: VideoInfo & {entries?: PlaylistEntry[]}
   try {
     parsed = JSON.parse(stdout) as VideoInfo & {entries?: PlaylistEntry[]}
@@ -279,7 +294,7 @@ export async function smartProbe(ytdlp: string, url: string, signal?: AbortSigna
   if (parsed.formats && parsed.formats.length > 0) {
     return {kind: 'video', info: parsed, infoJsonPath: await writeInfoJson(stdout)}
   }
-  const fallback = await probe(ytdlp, url, signal)
+  const fallback = await probe(ytdlp, url, signal, cookiesFromBrowser)
   return {kind: 'video', info: fallback.info, infoJsonPath: fallback.infoJsonPath}
 }
 
@@ -289,8 +304,9 @@ export async function probePlaylistItem(
   url: string,
   index: number,
   signal?: AbortSignal,
+  cookiesFromBrowser?: string,
 ): Promise<ProbeResult> {
-  const stdout = await runYtDlp(ytdlp, ['-J', '--no-warnings', '--playlist-items', String(index), url], signal)
+  const stdout = await runYtDlp(ytdlp, ['-J', '--no-warnings', ...cookieArgs(cookiesFromBrowser), '--playlist-items', String(index), url], signal)
   let parsed: VideoInfo & {entries?: VideoInfo[]}
   try {
     parsed = JSON.parse(stdout) as VideoInfo & {entries?: VideoInfo[]}
@@ -422,6 +438,17 @@ function scoreVideo(f: RawFormat): number {
   return score
 }
 
+export type ActiveItem = {
+  /** 1-based playlist index of this item. */
+  index: number
+  downloadedBytes: number
+  totalBytes?: number
+  speed?: number
+  part: number
+  totalParts: number
+  processing: boolean
+}
+
 export type DownloadProgress = {
   downloadedBytes: number
   totalBytes?: number
@@ -434,6 +461,10 @@ export type DownloadProgress = {
   item: number
   /** Total items in this run (1 for a single video, N for a playlist). */
   totalItems: number
+  /** Parallel playlist mode: progress for each concurrently-downloading item. */
+  activeItems?: ActiveItem[]
+  /** Parallel playlist mode: how many items have finished. */
+  completedItems?: number
 }
 
 export type DownloadHandlers = {
@@ -477,6 +508,8 @@ export function download(
     chapters?: boolean
     /** Download only a time range; both endpoints optional. */
     sections?: {from?: string; to?: string}
+    /** Pass browser cookies to yt-dlp for authenticated downloads. */
+    cookiesFromBrowser?: string
   },
   handlers: DownloadHandlers,
   signal?: AbortSignal,
@@ -486,6 +519,7 @@ export function download(
     // playlist mode always re-extracts from the url (no cached info to reuse);
     // single-video reuses the probe's metadata when available
     ...(playlist ? [opts.url] : opts.infoJsonPath ? ['--load-info-json', opts.infoJsonPath] : [opts.url]),
+    ...cookieArgs(opts.cookiesFromBrowser),
     // pinned format_ids only apply when the cached info guarantees them — across
     // separate videos (a playlist) the ids differ, so the generic height-bounded
     // fallbackArgs selector is the safe choice
@@ -649,6 +683,148 @@ async function trimWithFfmpeg(
     result.push(filepath)
   }
   return result
+}
+
+/** Default concurrent downloads for playlists — 3 balances speed vs rate-limiting. */
+export const DEFAULT_CONCURRENCY = 3
+
+/**
+ * Pure helper: how many workers should we spawn for a playlist of `count`
+ * items at `concurrency`? Capped at the item count so we never spawn idle
+ * workers. Exported for testing.
+ */
+/** Extract the hostname from a url, returning '' for invalid urls. */
+function safeHostname(url: string): string {
+  try {
+    return new URL(url).hostname.toLowerCase()
+  } catch {
+    return ''
+  }
+}
+
+export function workerCount(count: number, concurrency = DEFAULT_CONCURRENCY): number {
+  return Math.max(1, Math.min(concurrency, count))
+}
+
+/**
+ * Download playlist items in parallel — spawns up to `concurrency` yt-dlp
+ * processes at once, each downloading one item. Aggregates per-item progress
+ * into a single DownloadProgress with `activeItems` + `completedItems` so the
+ * UI can render multiple bars. On cancel, aborts all in-flight downloads and
+ * cleans up partials. Returns filepaths in original playlist order.
+ */
+export async function downloadPlaylistParallel(
+  opts: {
+    ytdlp: string
+    ffmpegLocation?: string
+    url: string
+    choice: DownloadChoice
+    outDir: string
+    indices: number[]
+    concurrency?: number
+    chapters?: boolean
+    sections?: {from?: string; to?: string}
+    cookiesFromBrowser?: string
+  },
+  handlers: DownloadHandlers,
+  signal?: AbortSignal,
+): Promise<string[]> {
+  // YouTube aggressively throttles parallel downloads — multiple concurrent streams
+  // from one client get rate-limited so hard that 3 parallel can be slower than 1
+  // sequential. Default to sequential for YouTube unless the user opts in with --concurrency.
+  const isYouTube = /(?:^|\.)youtube\.com$|\.youtu\.be$/.test(safeHostname(opts.url))
+  const effectiveConcurrency = opts.concurrency ?? (isYouTube ? 1 : DEFAULT_CONCURRENCY)
+  const concurrency = workerCount(opts.indices.length, effectiveConcurrency)
+  // shared mutable state — each worker updates its own slot, then emits the aggregate
+  const active = new Map<number, ActiveItem>()
+  let completedItems = 0
+
+  const emit = () => {
+    const activeItems = [...active.values()].sort((a, b) => a.index - b.index)
+    // pick a "current" item for the legacy fields (the most-downloaded active one)
+    const lead = activeItems.reduce((best, item) => (item.downloadedBytes > (best?.downloadedBytes ?? 0) ? item : best), undefined as ActiveItem | undefined)
+    handlers.onProgress({
+      downloadedBytes: lead?.downloadedBytes ?? 0,
+      totalBytes: lead?.totalBytes,
+      speed: activeItems.reduce((sum, item) => sum + (item.speed ?? 0), 0) || undefined,
+      part: lead?.part ?? 0,
+      totalParts: lead?.totalParts ?? 1,
+      item: lead?.index ?? 0,
+      totalItems: opts.indices.length,
+      activeItems,
+      completedItems,
+    })
+  }
+
+  const queue = [...opts.indices]
+  // collect each item's filepaths, keyed by playlist index, for ordered return
+  const results = new Map<number, string[]>()
+
+  async function worker(): Promise<void> {
+    while (queue.length > 0) {
+      if (signal?.aborted) return
+      const index = queue.shift()!
+      active.set(index, {
+        index,
+        downloadedBytes: 0,
+        part: 0,
+        totalParts: 1,
+        processing: false,
+      })
+      emit()
+      try {
+        const filepaths = await download(
+          {
+            ytdlp: opts.ytdlp,
+            ffmpegLocation: opts.ffmpegLocation,
+            url: opts.url,
+            choice: opts.choice,
+            outDir: opts.outDir,
+            playlist: {indices: [index]},
+            chapters: opts.chapters,
+            sections: opts.sections,
+            cookiesFromBrowser: opts.cookiesFromBrowser,
+          },
+          {
+            onProgress: p => {
+              active.set(index, {
+                index,
+                downloadedBytes: p.downloadedBytes,
+                totalBytes: p.totalBytes,
+                speed: p.speed,
+                part: p.part,
+                totalParts: p.totalParts,
+                processing: false,
+              })
+              emit()
+            },
+            onProcessing: () => {
+              const item = active.get(index)
+              if (item) {
+                active.set(index, {...item, processing: true})
+                emit()
+              }
+              handlers.onProcessing()
+            },
+          },
+          signal,
+        )
+        results.set(index, filepaths)
+        active.delete(index)
+        completedItems++
+        emit()
+      } catch (error) {
+        active.delete(index)
+        if (signal?.aborted) return
+        throw error
+      }
+    }
+  }
+
+  // spawn `concurrency` workers and wait for all to drain the queue
+  await Promise.all(Array.from({length: concurrency}, () => worker()))
+  // return filepaths in original playlist order
+  return opts.indices.flatMap(index => results.get(index) ?? [])
 }
 
 function removePartials(destinations: string[]): Promise<unknown> {

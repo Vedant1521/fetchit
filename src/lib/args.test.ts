@@ -87,6 +87,19 @@ test('normalizeTime rejects malformed input', () => {
   assert.equal(normalizeTime('1:2:3:4'), undefined)
 })
 
+test('--concurrency accepts a positive integer in spaced and equals forms', () => {
+  assert.equal(parseArgs(['--concurrency', '3', 'https://example.com/v']).concurrency, 3)
+  assert.equal(parseArgs(['--concurrency=5', 'https://example.com/v']).concurrency, 5)
+  assert.equal(parseArgs(['--concurrency', '1', 'https://example.com/v']).concurrency, 1)
+})
+
+test('--concurrency rejects missing, zero, negative, and non-numeric values', () => {
+  assert.match(parseArgs(['--concurrency']).error ?? '', /needs a number/)
+  assert.match(parseArgs(['--concurrency', '0', 'https://example.com/v']).error ?? '', /positive number/)
+  assert.match(parseArgs(['--concurrency', '-1', 'https://example.com/v']).error ?? '', /positive number/)
+  assert.match(parseArgs(['--concurrency', 'abc', 'https://example.com/v']).error ?? '', /positive number/)
+})
+
 test('--best sets the scriptable flag and keeps the url', () => {
   assert.deepEqual(parseArgs(['--best', 'https://example.com/v']), {
     help: false,

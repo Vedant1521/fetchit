@@ -11,6 +11,7 @@ import {isProbablyUrl} from './lib/platforms.js'
 import {
   cleanupProbeInfo,
   download,
+  downloadPlaylistParallel,
   ensureYtDlp,
   findFfmpeg,
   pickChoice,
@@ -52,6 +53,8 @@ const HELP = `
     --chapters      embed YouTube chapter markers into the output file
     --from <time>   download from this point (MM:SS or HH:MM:SS)
     --to <time>     download up to this point (MM:SS or HH:MM:SS)
+    --concurrency <n>  parallel playlist downloads (default 3; YouTube auto-sequential)
+    --cookies-from-browser <browser>  use browser cookies for authenticated downloads
     -o, --output <dir>  save into <dir> instead of ~/Downloads
     --theme <mode>  use auto, light, or dark for this run
     -h, --help      show this help
@@ -111,23 +114,24 @@ if (scriptable || args.chapters || args.from || args.to) {
     if (args.quality) return pickChoiceByLabel(info, args.quality)
     return pickChoice(info, 'best')
   }
-  // chapters + sections apply to every download in this run
+  // chapters + sections + cookies apply to every download in this run
   const extras = {
     chapters: args.chapters,
     sections: (args.from || args.to) ? {from: args.from, to: args.to} : undefined,
+    cookiesFromBrowser: args.cookiesFromBrowser,
   }
   try {
     const ytdlp = await ensureYtDlp(() => {}, controller.signal)
-    const probeResult = await smartProbe(ytdlp, url, controller.signal)
+    const probeResult = await smartProbe(ytdlp, url, controller.signal, args.cookiesFromBrowser)
     if (probeResult.kind === 'playlist') {
-      // playlist: one choice applies to every item, via --playlist-items (all items)
+      // playlist: download items in parallel (3 concurrent) for ~3x speedup
       void cleanupProbeInfo(probeResult.infoJsonPath)
       const indices = probeResult.playlist.entries.map((_, i) => i + 1)
-      const firstInfo = (await probePlaylistItem(ytdlp, url, 1, controller.signal)).info
+      const firstInfo = (await probePlaylistItem(ytdlp, url, 1, controller.signal, args.cookiesFromBrowser)).info
       const choice = resolveChoice(firstInfo)
       const ffmpegLocation = await findFfmpeg()
-      const filepaths = await download(
-        {ytdlp, ffmpegLocation, url, choice, outDir, playlist: {indices}, ...extras},
+      const filepaths = await downloadPlaylistParallel(
+        {ytdlp, ffmpegLocation, url, choice, outDir, indices, concurrency: args.concurrency, ...extras},
         {
           onProgress: p => process.stdout.write('.'),
           onProcessing: () => process.stdout.write('|'),
@@ -199,6 +203,8 @@ const {waitUntilExit} = render(
     clipboardUrl={clipboardUrl}
     initialThemeMode={initialThemeMode}
     outputDir={outDir}
+    concurrency={args.concurrency}
+    cookiesFromBrowser={args.cookiesFromBrowser}
     onOutcome={result => (outcome = result)}
   />,
   // keep a copy of every frame so clicks can be hit-tested against it
