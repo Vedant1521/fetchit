@@ -29,6 +29,10 @@ no sketchy redirects.
   <img src="assets/home.jpg" alt="fetchit home screen — paste a link and hit fetchit" width="90%">
 </div>
 
+<div align="center">
+  <img src="assets/fetchit-demo.gif" alt="fetchit demo — paste, pick, download" width="90%">
+</div>
+
 ## ✨ Features
 
 - **one command, every site** — a single `fetchit <url>` covers anything
