@@ -286,6 +286,13 @@ clipboard.
 3. **Clipboard has multi-line content.** fetchit ignores clipboard
    content with spaces or newlines (new URL() silently strips them, which
    would cause confusing errors).
+4. **PowerShell cold-start (Windows).** PowerShell's first launch after
+   boot can take 5-10 seconds. During this time you'll see
+   `⌛ checking clipboard…` below the input. Once it completes, the hint
+   appears automatically — just wait a few seconds. If you start typing
+   before the check finishes, the hint won't show (but you already have
+   the url). This is a one-time delay per PowerShell session; subsequent
+   launches within the same session are faster.
 
 ---
 

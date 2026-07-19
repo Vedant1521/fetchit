@@ -6,8 +6,9 @@ import {render} from 'ink'
 import {App, type Outcome} from './app.js'
 import {captureFrames} from './lib/click-map.js'
 import {parseArgs} from './lib/args.js'
-import {readClipboard} from './lib/clipboard.js'
+import {readClipboardSync} from './lib/clipboard.js'
 import {isProbablyUrl} from './lib/platforms.js'
+
 import {
   cleanupProbeInfo,
   download,
@@ -170,13 +171,18 @@ if (scriptable || args.chapters || args.from || args.to) {
 
 const isTTY = Boolean(process.stdout.isTTY)
 
-// no url given — offer the clipboard url (⇥ to paste) when it already holds one
+// fast-path: try clipboard sync with short timeout (800 ms)
+// async fallback in AppContent handles slow PowerShell cold-start
 let clipboardUrl: string | undefined
 if (!initialUrl && isTTY) {
-  const clipped = readClipboard().trim()
-  // reject multi-line clipboard content — new URL() silently strips newlines
-  if (clipped && !/\s/.test(clipped) && isProbablyUrl(clipped)) clipboardUrl = clipped
+  try {
+    const clipped = readClipboardSync().trim()
+    if (clipped && !/\s/.test(clipped) && isProbablyUrl(clipped)) clipboardUrl = clipped
+  } catch {
+    // sync timed out — async fallback in AppContent will pick it up
+  }
 }
+
 const enterAltScreen = () => process.stdout.write('\x1b[?1049h\x1b[H')
 // also switch mouse tracking off — a crash can skip React effect cleanup
 const leaveAltScreen = () => process.stdout.write('\x1b[?1006l\x1b[?1000l\x1b[?1049l')

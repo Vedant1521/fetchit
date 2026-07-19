@@ -15,6 +15,7 @@ import {TextInput} from './components/text-input.js'
 import {clickTargetAt, findFrameRow, frameRowSpan, type ClickTarget} from './lib/click-map.js'
 import {formatBytes, formatDuration, formatEta, formatSpeed, shortenPath, truncate, wrapText} from './lib/format.js'
 import {addToHistory, loadHistory} from './lib/history.js'
+import {readClipboard} from './lib/clipboard.js'
 import {detectPlatform, isProbablyUrl, type Platform} from './lib/platforms.js'
 import {useMouseClick} from './lib/use-mouse-click.js'
 import {nextThemeMode, ThemeProvider, type ThemeMode, useTheme} from './theme.js'
@@ -211,7 +212,7 @@ export function App({initialThemeMode = 'auto', outputDir, concurrency, cookiesF
 
 function AppContent({
   initialUrl,
-  clipboardUrl,
+  clipboardUrl: initialClipboardUrl,
   outputDir,
   concurrency,
   cookiesFromBrowser,
@@ -231,6 +232,8 @@ function AppContent({
   const {stdout} = useStdout()
   const [url, setUrl] = useState(initialUrl ?? '')
   const [urlInput, setUrlInput] = useState('')
+  const [clipboardUrl, setClipboardUrl] = useState<string | undefined>(initialClipboardUrl)
+  const [clipboardChecking, setClipboardChecking] = useState(false)
   const [history, setHistory] = useState(loadHistory)
   const [platform, setPlatform] = useState<Platform>()
   const [info, setInfo] = useState<VideoInfo>()
@@ -295,6 +298,21 @@ function AppContent({
   useEffect(() => {
     if (initialUrl) void startProbe(initialUrl)
   }, [initialUrl, startProbe])
+
+  useEffect(() => {
+    // async fallback — sync fast-path in cli.tsx may have already set it
+    if (clipboardUrl) return
+    if (!initialUrl && Boolean(process.stdout.isTTY)) {
+      setClipboardChecking(true)
+      readClipboard().then(clipped => {
+        setClipboardChecking(false)
+        const trimmed = clipped.trim()
+        if (trimmed && !/\s/.test(trimmed) && isProbablyUrl(trimmed)) {
+          setClipboardUrl(trimmed)
+        }
+      })
+    }
+  }, [initialUrl, clipboardUrl])
 
   const resetToInput = useCallback(() => {
     void cleanupProbeInfo(infoJsonRef.current)
@@ -636,6 +654,8 @@ function AppContent({
             <Text color={theme.gray} dimColor={theme.dimSecondary}>link in your clipboard — [Tab] to paste it</Text>
           ) : clipboardAccepted ? (
             <Text color={theme.gray} dimColor={theme.dimSecondary}>from your clipboard — [Enter] to fetch it</Text>
+          ) : clipboardChecking && !clipboardUrl ? (
+            <Text color={theme.gray} dimColor={theme.dimSecondary}>⌛ checking clipboard…</Text>
           ) : null}
         </Box>
       )}
