@@ -323,10 +323,17 @@ npm run dev          # rebuild on change
 node dist/cli.js <url>
 npm run typecheck    # tsc --noEmit
 npm test             # tsx --test src/**/*.test.ts
+npm run build:binary # standalone binary (requires Bun)
 ```
 
 To try it as a global command without publishing: `npm link`, then run
 `fetchit` anywhere.
+
+## Release
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md#release-process) for the release
+process — pushing a `v*` tag builds binaries across 4 platforms and creates
+a GitHub Release automatically.
 
 ## Contributing
 

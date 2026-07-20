@@ -67,14 +67,63 @@ assets/               # images, demo GIFs
 4. Run `npm run typecheck && npm test && npm run build`. All three must pass.
 5. Push and open the PR. Write a clear description of what changed and why.
 
+## Release process
+
+Maintainers can publish a new release by pushing a version tag:
+
+```sh
+# 1. Ensure main is up to date and CI passes
+git checkout main
+git pull
+
+# 2. Bump the version in package.json (semver)
+#    Edit package.json and run `npm install` to sync package-lock.json
+
+# 3. Commit and tag
+git commit -am "v0.x.x"
+git tag v0.x.x
+
+# 4. Push — this triggers .github/workflows/release.yml
+git push && git push origin v0.x.x
+```
+
+The workflow will:
+1. Run typecheck, tests, and tsup build (`check` job)
+2. Build standalone binaries for Windows, macOS (x64 + arm64), and Linux (`build-binary` job, matrix across 4 runners)
+3. Create a GitHub Release with the binaries attached (`create-release` job)
+
+The release binaries are published at:
+`https://github.com/Vedant1521/fetchit/releases/latest/download/fetchit-<os>-<arch>`
+
+The install scripts (`install.sh` / `install.ps1`) download from this URL automatically.
+
+### Binary notes
+
+- Built with `bun build --compile` — bundles Bun runtime + all deps (~100 MB)
+- Windows: `fetchit-win-x64.exe`
+- macOS Intel: `fetchit-darwin-x64`
+- macOS Apple Silicon: `fetchit-darwin-arm64`
+- Linux: `fetchit-linux-x64`
+
+### npm publish
+
+Standalone publish to npm (not automated):
+
+```sh
+npm run build
+npm publish
+```
+
+The install scripts prefer npm if Node.js 18+ is detected, falling back to the standalone binary otherwise.
+
 ## What needs help
 
-Check the issues tab or the roadmap in `_chat-history/06-next-steps.md`. In general:
+Check the issues tab or the roadmap in [README.md](./README.md#roadmap). In general:
 
 - **Bug reports** with reproduction steps are very helpful
 - **Test coverage** for components, error paths, and edge cases
 - **Documentation** improvements, especially troubleshooting
-- **Platform packages** (winget, homebrew, scoop)
+- **Platform packages** (winget, homebrew, scoop) — package fetchit for system package managers
 
 ## Code of conduct
 
