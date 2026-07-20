@@ -1,6 +1,6 @@
 #!/usr/bin/env pwsh
 # fetchit installer for Windows
-#   powershell -c "irm https://fetchit-beta.vercel.app/install.ps1 | iex"
+#   powershell -c "irm https://fetchit-cli.vercel.app/install.ps1 | iex"
 
 $Repo = "vedant1521/fetchit"
 $BinaryDir = "$env:USERPROFILE\.fetchit\bin"

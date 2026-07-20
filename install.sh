@@ -1,6 +1,6 @@
 #!/bin/sh
 # fetchit installer
-#   curl -fsSL https://fetchit-beta.vercel.app/install.sh | sh
+#   curl -fsSL https://fetchit-cli.vercel.app/install.sh | sh
 set -eu
 
 REPO="vedant1521/fetchit"
