@@ -3,7 +3,7 @@
 #   curl -fsSL https://fetchit-beta.vercel.app/install.sh | sh
 set -eu
 
-REPO="Vedant1521/fetchit"
+REPO="vedant1521/fetchit"
 BINARY_DIR="${HOME}/.fetchit/bin"
 YTDLP_DIR="${HOME}/.fetchit/bin"
 
@@ -17,9 +17,14 @@ echo() {
 
 install_via_npm() {
   echo "✓ Node.js $(node --version) found"
-  npm install -g "@${REPO}"
-  echo "✓ fetchit installed via npm"
-  echo "  Run 'fetchit' to start."
+  if npm install -g "@${REPO}"; then
+    echo "✓ fetchit installed via npm"
+    echo "  Run 'fetchit' to start."
+    return 0
+  else
+    echo "! npm install failed, will try standalone binary..."
+    return 1
+  fi
 }
 
 install_standalone_binary() {
@@ -144,11 +149,12 @@ echo ""
 if has_command node; then
   ver="$(node --version | sed 's/v//' | cut -d. -f1)"
   if [ "${ver}" -ge 18 ] 2>/dev/null; then
-    install_via_npm
-    download_ytdlp
-    echo ""
-    echo "✓ Setup complete. Run 'fetchit' to start."
-    exit 0
+    if install_via_npm; then
+      download_ytdlp
+      echo ""
+      echo "✓ Setup complete. Run 'fetchit' to start."
+      exit 0
+    fi
   fi
 fi
 

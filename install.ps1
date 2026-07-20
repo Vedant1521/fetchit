@@ -2,7 +2,7 @@
 # fetchit installer for Windows
 #   powershell -c "irm https://fetchit-beta.vercel.app/install.ps1 | iex"
 
-$Repo = "Vedant1521/fetchit"
+$Repo = "vedant1521/fetchit"
 $BinaryDir = "$env:USERPROFILE\.fetchit\bin"
 $YtdlpDir = "$env:USERPROFILE\.fetchit\bin"
 
@@ -12,8 +12,13 @@ function Has-Command($cmd) {
 
 function Install-ViaNpm {
     Write-Host "✓ Node.js $($node.Version) found" -ForegroundColor Green
-    npm install -g "@$Repo"
+    $result = npm install -g "@$Repo" 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "! npm install failed, falling back to standalone binary" -ForegroundColor Yellow
+        return $false
+    }
     Write-Host "✓ fetchit installed via npm" -ForegroundColor Green
+    return $true
 }
 
 function Install-StandaloneBinary {
@@ -55,10 +60,12 @@ $node = Get-Command node -ErrorAction SilentlyContinue
 if ($node) {
     $ver = [int]($node.Version.Major)
     if ($ver -ge 18) {
-        Install-ViaNpm
-        Write-Host ""
-        Write-Host "✓ Setup complete. Run 'fetchit' to start." -ForegroundColor Green
-        return
+        if (Install-ViaNpm) {
+            Write-Host ""
+            Write-Host "✓ Setup complete. Run 'fetchit' to start." -ForegroundColor Green
+            return
+        }
+        Write-Host "! npm install failed, trying standalone binary..." -ForegroundColor Yellow
     }
 }
 
