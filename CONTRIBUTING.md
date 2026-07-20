@@ -101,8 +101,7 @@ The install scripts (`install.sh` / `install.ps1`) download from this URL automa
 
 - Built with `bun build --compile` — bundles Bun runtime + all deps (~100 MB)
 - Windows: `fetchit-win-x64.exe`
-- macOS Intel: `fetchit-darwin-x64`
-- macOS Apple Silicon: `fetchit-darwin-arm64`
+- macOS (Apple Silicon): `fetchit-darwin-arm64` (Intel Macs can use Rosetta 2)
 - Linux: `fetchit-linux-x64`
 
 ### npm publish
