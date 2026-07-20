@@ -20,30 +20,43 @@ while it works, and hands control back when it's done.
 
 ## Step 1: Install
 
-You need **Node.js 18 or newer**. Check with:
+Pick the method that fits you.
+
+### Quick install (no Node.js needed)
+
+**macOS / Linux:**
 
 ```sh
-node --version
+curl -fsSL https://fetchit.vercel.app/install.sh | sh
 ```
 
-If that prints something like `v18.x` or higher, you're good. If not,
-download Node from [nodejs.org](https://nodejs.org) first.
+**Windows (PowerShell):**
 
-Then install fetchit globally:
+```powershell
+powershell -c "irm https://fetchit.vercel.app/install.ps1 | iex"
+```
+
+The script downloads a standalone binary, puts it in `~/.fetchit/bin/`, and
+adds it to your PATH. Restart your terminal, then run `fetchit`.
+
+### Via npm (requires Node 18+)
 
 ```sh
 npm install -g @vedant1521/fetchit
 ```
 
-Or try it once without installing anything:
+Or try it once without installing:
 
 ```sh
 npx @vedant1521/fetchit
 ```
 
-That's it. fetchit handles the rest — it downloads the yt-dlp engine on
+### What happens next
+
+Either way, fetchit handles the rest — it downloads the yt-dlp engine on
 first run and bundles ffmpeg automatically. You don't need to install
-Python or anything else.
+Python or anything else. See the [full install guide](./install.md) for
+building from source and platform-specific notes.
 
 ---
 

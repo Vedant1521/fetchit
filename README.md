@@ -96,7 +96,8 @@ For everything else, there's a dedicated guide:
 
 | Guide | What's inside |
 | --- | --- |
-| [Getting Started](./docs/getting-started.md) | Install, first run, your first download, quick reference |
+| [Install](./docs/install.md) | All install methods, standalone binary, building from source, platform notes |
+| [Getting Started](./docs/getting-started.md) | First run, your first download, quick reference |
 | [Interactive Mode](./docs/interactive-mode.md) | Full-screen TUI, every keyboard shortcut, mouse, themes, clipboard, history |
 | [Scriptable Mode](./docs/scriptable-mode.md) | `--best` / `--mp3` / direct quality, `-o`, exit codes, scripting examples |
 | [Playlists](./docs/playlists.md) | Playlist detection, multi-select picker, batch downloads, output structure |
@@ -122,18 +123,36 @@ listed below still works — it just shows as the bare hostname.
 
 ## Install
 
+### One-liner (no Node.js needed)
+
+```sh
+curl -fsSL https://fetchit.vercel.app/install.sh | sh
+```
+
+Windows (PowerShell):
+
+```powershell
+powershell -c "irm https://fetchit.vercel.app/install.ps1 | iex"
+```
+
+The script detects your OS, downloads a standalone binary, and adds it to
+your PATH. No Node.js, no npm, no manual setup.
+
+### Via npm (requires Node 18+)
+
 ```sh
 npm install -g @vedant1521/fetchit
 ```
 
-Or try it without installing anything:
+### Try without installing
 
 ```sh
 npx @vedant1521/fetchit
 ```
 
-Requires Node 18+. Everything else (yt-dlp, ffmpeg) is fetched or bundled
-automatically.
+Everything else (yt-dlp, ffmpeg) is fetched or bundled automatically on
+first run. See the [full install guide](./docs/install.md) for details,
+including building a standalone binary from source.
 
 ## Usage
 
@@ -291,6 +310,7 @@ launch.
 | Download engine | [yt-dlp](https://github.com/yt-dlp/yt-dlp) (standalone binary, auto-fetched) |
 | Media processing | [ffmpeg](https://ffmpeg.org/) via [ffmpeg-static](https://www.npmjs.com/package/ffmpeg-static) fallback |
 | Bundler | [tsup](https://tsup.etsy.com/) (esm, node18 target) |
+| Binary | [Bun](https://bun.sh/) `--compile` |
 | Test runner | Node's built-in `node:test` + `node:assert` |
 | Package manager | npm |
 
@@ -322,7 +342,7 @@ and what needs help.
 - [x] Clipboard detection: launch bare and auto-suggest the url you copied
 - [x] Self-update for the bundled yt-dlp binary (`fetchit update`)
 - [x] Publish to npm (`npm i -g @vedant1521/fetchit` / `npx @vedant1521/fetchit`)
-- [ ] `curl fetchit.sh | sh` installer
+- [x] Standalone binary (`curl ... | sh` installer, no Node.js required)
 
 ## A note on fair use
 

@@ -44,6 +44,7 @@ assets/               # images, demo GIFs
 | Command | What it does |
 |---|---|
 | `npm run build` | Build with tsup → `dist/cli.js` |
+| `npm run build:binary` | Build standalone binary (requires Bun) → `dist/fetchit` |
 | `npm run typecheck` | `tsc --noEmit` (strict mode) |
 | `npm test` | Run all tests (`tsx --test src/**/*.test.ts`) |
 | `node dist/cli.js <url>` | Run locally |

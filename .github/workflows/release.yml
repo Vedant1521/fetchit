@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags: v*
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  build-binary:
+    needs: check
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset: fetchit-linux-x64
+          - os: macos-13
+            asset: fetchit-darwin-x64
+          - os: macos-latest
+            asset: fetchit-darwin-arm64
+          - os: windows-latest
+            asset: fetchit-win-x64.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: bun scripts/build-binary.js
+      - run: mv dist/fetchit* dist/${{ matrix.asset }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
+
+  create-release:
+    needs: build-binary
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true
