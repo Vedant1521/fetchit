@@ -11,7 +11,7 @@ function Has-Command($cmd) {
 }
 
 function Install-ViaNpm {
-    Write-Host "✓ Node.js $($node --version) found" -ForegroundColor Green
+    Write-Host "✓ Node.js $($node.Version) found" -ForegroundColor Green
     npm install -g "@$Repo"
     Write-Host "✓ fetchit installed via npm" -ForegroundColor Green
 }
