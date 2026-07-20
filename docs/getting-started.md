@@ -27,13 +27,13 @@ Pick the method that fits you.
 **macOS / Linux:**
 
 ```sh
-curl -fsSL https://fetchit.vercel.app/install.sh | sh
+curl -fsSL https://fetchit-beta.vercel.app/install.sh | sh
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-powershell -c "irm https://fetchit.vercel.app/install.ps1 | iex"
+powershell -c "irm https://fetchit-beta.vercel.app/install.ps1 | iex"
 ```
 
 The script downloads a standalone binary, puts it in `~/.fetchit/bin/`, and

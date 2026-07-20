@@ -126,13 +126,13 @@ listed below still works — it just shows as the bare hostname.
 ### One-liner (no Node.js needed)
 
 ```sh
-curl -fsSL https://fetchit.vercel.app/install.sh | sh
+curl -fsSL https://fetchit-beta.vercel.app/install.sh | sh
 ```
 
 Windows (PowerShell):
 
 ```powershell
-powershell -c "irm https://fetchit.vercel.app/install.ps1 | iex"
+powershell -c "irm https://fetchit-beta.vercel.app/install.ps1 | iex"
 ```
 
 The script detects your OS, downloads a standalone binary, and adds it to

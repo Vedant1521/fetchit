@@ -22,13 +22,13 @@ PATH.
 **macOS / Linux:**
 
 ```sh
-curl -fsSL https://fetchit.vercel.app/install.sh | sh
+curl -fsSL https://fetchit-beta.vercel.app/install.sh | sh
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-powershell -c "irm https://fetchit.vercel.app/install.ps1 | iex"
+powershell -c "irm https://fetchit-beta.vercel.app/install.ps1 | iex"
 ```
 
 After install, restart your terminal (or run `source ~/.zshrc`) and type
