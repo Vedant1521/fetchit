@@ -58,7 +58,7 @@ if ($node) {
         Install-ViaNpm
         Write-Host ""
         Write-Host "✓ Setup complete. Run 'fetchit' to start." -ForegroundColor Green
-        exit 0
+        return
     }
 }
 
@@ -70,7 +70,7 @@ if (Install-StandaloneBinary) {
     Add-ToPath
     Write-Host ""
     Write-Host "✓ Setup complete. Restart your terminal and run 'fetchit'." -ForegroundColor Green
-    exit 0
+    return
 }
 
 Write-Host "! Could not install fetchit automatically." -ForegroundColor Red
@@ -82,4 +82,4 @@ Write-Host ""
 Write-Host "  Option 2 — Download the latest release manually:"
 Write-Host "    https://github.com/$Repo/releases"
 Write-Host ""
-exit 1
+return
