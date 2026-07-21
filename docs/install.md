@@ -6,10 +6,10 @@ fetchit can be installed in several ways. Pick the one that fits your setup.
 
 | Method | Requires | Binary size | Best for |
 |--------|----------|-------------|----------|
-| curl/sh one-liner | Nothing | ~50 MB | Most users |
+| curl/sh one-liner | Nothing | ~100 MB | Most users |
 | npm install | Node.js 18+ | ~93 KB (npm package) | Node.js developers |
 | npx | Node.js 18+ | ~93 KB (cached) | Trying once |
-| Build from source | Node.js 18+ + git | ~50 MB (binary) | Contributors |
+| Build from source | Node.js 18+ + git | ~100 MB (binary) | Contributors |
 
 ---
 
@@ -104,7 +104,7 @@ The binary bundles the Bun runtime plus all dependencies into a single file
 
 ### Windows
 
-- The standalone binary is a single `.exe` (~50 MB). No DLLs needed.
+- The standalone binary is a single `.exe` (~100 MB). No DLLs needed.
 - The curl installer uses PowerShell's `Invoke-WebRequest` (`irm`).
 - If you get a SmartScreen warning, click "More info" then "Run anyway."
   This will go away once the binary is code-signed in a future release.

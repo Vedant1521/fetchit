@@ -332,7 +332,7 @@ To try it as a global command without publishing: `npm link`, then run
 ## Release
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md#release-process) for the release
-process — pushing a `v*` tag builds binaries across 4 platforms and creates
+process — pushing a `v*` tag builds binaries across 3 platforms and creates
 a GitHub Release automatically.
 
 ## Contributing

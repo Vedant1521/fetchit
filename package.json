@@ -18,9 +18,7 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "build:sea": "tsup --config tsup.sea.ts && node --experimental-sea-config sea-config.json",
     "build:binary": "bun scripts/build-binary.js",
-    "build:binary:all": "bun scripts/build-binary.js",
     "test": "tsx --test src/**/*.test.ts",
     "typecheck": "tsc --noEmit",
     "start": "node dist/cli.js",

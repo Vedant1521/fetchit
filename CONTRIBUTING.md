@@ -138,7 +138,7 @@ git push && git push origin v0.x.x
 
 The workflow will:
 1. Run typecheck, tests, and tsup build (`check` job)
-2. Build standalone binaries for Windows, macOS (x64 + arm64), and Linux (`build-binary` job, matrix across 4 runners)
+2. Build standalone binaries for Windows, macOS (arm64), and Linux (`build-binary` job, matrix across 3 runners)
 3. Create a GitHub Release with the binaries attached (`create-release` job)
 
 The release binaries are published at:
