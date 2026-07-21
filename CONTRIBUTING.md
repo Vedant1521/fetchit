@@ -67,6 +67,55 @@ assets/               # images, demo GIFs
 4. Run `npm run typecheck && npm test && npm run build`. All three must pass.
 5. Push and open the PR. Write a clear description of what changed and why.
 
+## Automated CI/CD
+
+fetchit uses GitHub Actions for continuous integration and delivery. All workflow
+files live in `.github/workflows/`.
+
+### CI (Continuous Integration) — `.github/workflows/ci.yml`
+
+**Triggered on:** every push to `main` and every pull request targeting `main`.
+
+The workflow runs a single `check` job on an Ubuntu runner:
+
+1. `npm ci` — installs dependencies from `package-lock.json` (exact versions)
+2. `npm run typecheck` — TypeScript strict mode check (`tsc --noEmit`)
+3. `npm test` — runs all tests via Node's built-in test runner
+4. `npm run build` — bundles the project with tsup
+
+**What it means for contributors:** When you open a pull request, GitHub
+automatically runs these checks. A green checkmark ✅ means your changes are
+safe to merge. A red ❌ means something failed — click "Details" on the PR to
+see the logs.
+
+You can also run the same checks locally before pushing:
+```sh
+npm run typecheck && npm test && npm run build
+```
+
+### CD (Continuous Delivery) — `.github/workflows/release.yml`
+
+**Triggered on:** pushing a tag matching `v*` (e.g., `v0.5.0`).
+
+This workflow has 3 jobs that run in sequence:
+
+| Job | Runner | What it does |
+|-----|--------|-------------|
+| `check` | Ubuntu | Same as CI — typecheck, test, build. If this fails, the release is cancelled. |
+| `build-binary` | Windows, macOS, Linux (in parallel) | Builds a standalone binary on each OS using `bun build --compile`. Each binary is uploaded as a temporary artifact. |
+| `create-release` | Ubuntu | Downloads all 3 binaries, creates a GitHub Release page, attaches the binaries, and generates release notes automatically. |
+
+The matrix strategy runs the build step on 3 OSes simultaneously using the
+same `scripts/build-binary.js` script. Each runner produces one binary:
+
+| OS | Runner | Output file |
+|----|--------|------------|
+| Windows | `windows-latest` | `fetchit-win-x64.exe` |
+| macOS | `macos-latest` (Apple Silicon) | `fetchit-darwin-arm64` |
+| Linux | `ubuntu-latest` | `fetchit-linux-x64` |
+
+The entire workflow typically completes in ~2 minutes.
+
 ## Release process
 
 Maintainers can publish a new release by pushing a version tag:
