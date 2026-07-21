@@ -20,6 +20,10 @@ export function H3({ children }: { children: ReactNode }) {
   return <h3 className="mt-8 mb-3 text-lg font-semibold tracking-tight text-foreground">{children}</h3>
 }
 
+export function H4({ children }: { children: ReactNode }) {
+  return <h4 className="mt-6 mb-2 text-base font-semibold tracking-tight text-foreground">{children}</h4>
+}
+
 export function P({ children }: { children: ReactNode }) {
   return <p className="text-sm leading-relaxed text-muted-foreground">{children}</p>
 }
