@@ -1,13 +1,24 @@
 {
-  "buildCommand": null,
-  "outputDirectory": ".",
+  "rootDirectory": "site",
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
   "headers": [
     {
       "source": "/install.sh",
       "headers": [
         {
           "key": "Content-Type",
-          "value": "text/plain"
+          "value": "text/x-shellscript"
+        }
+      ]
+    },
+    {
+      "source": "/install.ps1",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/powershell"
         }
       ]
     }
