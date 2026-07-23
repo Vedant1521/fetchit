@@ -39,14 +39,22 @@ export function Navbar() {
             ))}
           </nav>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <Search />
           <M3ThemePicker />
+          <a
+            href="https://www.npmjs.com/package/@vedant1521/fetchit"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden md:inline-flex items-center gap-1 font-mono text-xs font-semibold text-muted-foreground hover:text-foreground transition-all duration-150 px-2.5 py-1 rounded-md bg-white/5 border border-white/10 hover:border-emerald-500/40 active:scale-[0.96]"
+          >
+            npm
+          </a>
           <a
             href="https://github.com/Vedant1521/fetchit"
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden text-sm text-muted-foreground hover:text-foreground transition-colors md:block"
+            className="hidden md:inline-flex items-center gap-1 font-mono text-xs font-semibold text-muted-foreground hover:text-foreground transition-all duration-150 px-2.5 py-1 rounded-md bg-white/5 border border-white/10 hover:border-emerald-500/40 active:scale-[0.96]"
           >
             GitHub
           </a>
@@ -65,6 +73,14 @@ export function Navbar() {
                     {link.label}
                   </Link>
                 ))}
+                <a
+                  href="https://www.npmjs.com/package/@vedant1521/fetchit"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  npm Package
+                </a>
                 <a
                   href="https://github.com/Vedant1521/fetchit"
                   target="_blank"

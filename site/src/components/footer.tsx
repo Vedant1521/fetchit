@@ -72,6 +72,19 @@ export function Footer() {
               </li>
               <li>
                 <a
+                  href="https://www.npmjs.com/package/@vedant1521/fetchit"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-foreground transition-colors flex items-center gap-1.5"
+                >
+                  <svg className="size-3.5 fill-current text-muted-foreground group-hover:text-foreground transition-colors" viewBox="0 0 24 24">
+                    <path d="M1.763 0C.786 0 0 .786 0 1.763v20.474C0 23.214.786 24 1.763 24h20.474c.977 0 1.763-.786 1.763-1.763V1.763C24 .786 23.214 0 22.237 0zM5.13 5.13h13.74v13.74h-3.435V8.565h-3.435v10.305H5.13z" />
+                  </svg>
+                  <span>npm Package</span>
+                </a>
+              </li>
+              <li>
+                <a
                   href="https://github.com/Vedant1521/fetchit/releases"
                   target="_blank"
                   rel="noopener noreferrer"

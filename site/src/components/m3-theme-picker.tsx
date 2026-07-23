@@ -119,6 +119,7 @@ export function M3ThemePicker() {
         onClick={() => setIsOpen(!isOpen)}
         aria-label="Customize Theme Color"
         title={`Theme: ${activeTheme.name}`}
+        suppressHydrationWarning
         className="inline-flex size-8 items-center justify-center rounded-md border border-input bg-background hover:bg-secondary transition-all duration-150 active:scale-[0.94] cursor-pointer"
       >
         <span
@@ -152,6 +153,7 @@ export function M3ThemePicker() {
                 <button
                   key={t.id}
                   onClick={() => handleSelectTheme(t)}
+                  suppressHydrationWarning
                   className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-left transition-all duration-150 cursor-pointer active:scale-[0.97] ${
                     isSelected
                       ? "bg-white/10 border-white/20 shadow-sm"

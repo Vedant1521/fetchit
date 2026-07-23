@@ -31,7 +31,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} dark`} suppressHydrationWarning>
-      <body className="min-h-screen bg-background text-foreground antialiased relative selection:bg-foreground selection:text-background overflow-x-hidden">
+      <body className="min-h-screen bg-background text-foreground antialiased relative selection:bg-foreground selection:text-background overflow-x-hidden" suppressHydrationWarning>
         <ToastProvider>
           <CommandPalette />
           <div className="fixed inset-0 bg-grid-mesh opacity-40 pointer-events-none z-0" />
