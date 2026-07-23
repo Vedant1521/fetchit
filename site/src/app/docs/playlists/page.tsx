@@ -476,7 +476,7 @@ fetchit --mp3 --chapters --items 5-15 https://youtube.com/playlist?list=PL...`}<
       <Ul>
         <Li>Using <Code>--last N</Code> to probe only the most recent N items</Li>
         <Li>Breaking the download into multiple commands with <Code>--items</Code> ranges</Li>
-        <Li>Running with <Code>--log-level debug</Code> to monitor progress in real time</Li>
+        <Li>Monitoring progress via the terminal output</Li>
       </Ul>
 
       <H3>Mixing formats across items</H3>

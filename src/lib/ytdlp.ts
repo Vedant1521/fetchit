@@ -103,9 +103,8 @@ export async function updateYtDlp(onStatus: (message: string) => void): Promise<
 
   const local = path.join(FETCHIT_DIR, process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp')
   if (!(await commandWorks(local, ['--version']))) {
-    throw new Error(
-      'No bundled yt-dlp found — run fetchit once to download it, then run `fetchit update`.',
-    )
+    onStatus('first run: fetching yt-dlp…')
+    await ensureYtDlp(onStatus)
   }
 
   const before = await ytDlpVersion(local)

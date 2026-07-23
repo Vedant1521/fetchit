@@ -21,7 +21,7 @@ export function Navbar() {
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
         <div className="flex items-center gap-6">
           <Link href="/" className="font-mono text-sm font-semibold tracking-tight">
-            fetchit
+            FETCHIT
           </Link>
           <nav className="hidden items-center gap-5 md:flex">
             {navLinks.map((link) => (
@@ -40,7 +40,7 @@ export function Navbar() {
             ))}
           </nav>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-5">
           <Search />
           <button
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}

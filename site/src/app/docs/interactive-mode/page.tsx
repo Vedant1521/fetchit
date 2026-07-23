@@ -35,9 +35,6 @@ export default function InteractiveMode() {
         rows={[
           ["--theme dark", "Start with the dark theme (bypasses auto-detection)"],
           ["--theme light", "Start with the light theme"],
-          ["--format id", "Pre-select a format by ID (skips the format picker)"],
-          ["--windowed", "Force windowed mode (disables full-screen)"],
-          ["--log-level debug", "Show verbose debug output alongside the UI"],
         ]}
       />
       <P>
@@ -45,7 +42,7 @@ export default function InteractiveMode() {
       </P>
 
       <Note>
-        When you pass both a URL and <Code>--format</Code>, fetchit runs fully automatically — it probes, selects the format, downloads, and exits. This is useful for quick one-shot downloads without interactive input.
+        When you pass both a URL and one of the scriptable flags (<Code>--best</Code>, <Code>--mp3</Code>, or a quality string), fetchit runs fully automatically — it probes, selects the format, downloads, and exits. This is useful for quick one-shot downloads without interactive input.
       </Note>
 
       <H2>Screen-by-screen walkthrough</H2>
@@ -89,7 +86,7 @@ export default function InteractiveMode() {
 
       <H4>Progress indicators</H4>
       <P>
-        A spinner animates in the terminal while probing. If you passed the <Code>--log-level debug</Code> flag, the raw yt-dlp JSON output streams beneath the spinner in real time, giving you full visibility into what is being fetched.
+        A spinner animates in the terminal while probing.
       </P>
 
       <H4>Cancelling</H4>
@@ -237,7 +234,7 @@ export default function InteractiveMode() {
       </P>
 
       <Note>
-        If you encounter persistent errors, run <Code>fetchit --log-level debug</Code> to see the full command output. This often reveals missing dependencies, outdated yt-dlp, or network configuration issues.
+        If you encounter persistent errors, check the troubleshooting guide or inspect the error details shown on screen. This often reveals missing dependencies, outdated yt-dlp, or network configuration issues.
       </Note>
 
       <H2>Complete keyboard reference</H2>
@@ -376,7 +373,7 @@ fetchit --theme auto`}</Pre>
         <Li><strong>Logo</strong> — clicking the fetchit logo returns you to the Input screen (acts like pressing <Code>[Esc]</Code> from most phases)</Li>
       </Ul>
       <P>
-        Mouse support can be disabled by starting fetchit with the <Code>--windowed</Code> flag, which disables full-screen rendering and mouse event capture.
+        Mouse support is enabled by default in full-screen mode.
       </P>
 
       <H2>Clipboard detection</H2>
@@ -471,11 +468,11 @@ fetchit --theme auto`}</Pre>
 
       <H3>Bypass the format picker</H3>
       <P>
-        If you always want the best quality, combine a URL with the <Code>--format best</Code> flag. fetchit downloads immediately without showing the picker:
+        If you always want the best quality, use the <Code>--best</Code> flag. fetchit downloads immediately without showing the picker:
       </P>
-      <Pre>{`fetchit "https://youtube.com/watch?v=..." --format best`}</Pre>
+      <Pre>{`fetchit --best "https://youtube.com/watch?v=..."`}</Pre>
       <P>
-        Use <Code>--format bestaudio</Code> to download only the audio track without interaction.
+        Use <Code>--mp3</Code> to download only the audio track without interaction.
       </P>
 
       <H3>Quick yt-dlp updates</H3>
@@ -489,13 +486,9 @@ fetchit --theme auto`}</Pre>
       </P>
       <Pre>{`FETCHIT_DOWNLOAD_DIR=~/Movies fetchit "https://youtube.com/watch?v=..."`}</Pre>
 
-      <H3>Debug mode for troubleshooting</H3>
+      <H3>Check the troubleshooting guide</H3>
       <P>
-        When a download fails and the error message is not helpful, run with debug logging:
-      </P>
-      <Pre>{`fetchit --log-level debug "https://youtube.com/watch?v=..."`}</Pre>
-      <P>
-        This streams the full yt-dlp and ffmpeg output beneath the UI, including any stderr warnings, HTTP status codes, and command-line invocations.
+        When a download fails and the error message is not helpful, refer to the <Link href="/docs/troubleshooting">troubleshooting guide</Link> for common issues and solutions.
       </P>
 
       <H3>Using with tmux</H3>

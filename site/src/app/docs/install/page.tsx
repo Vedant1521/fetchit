@@ -8,7 +8,7 @@ export default function Install() {
     <Prose>
       <H1>Install Guide</H1>
       <P>
-        fetchit is distributed as a standalone binary, an npm package, and source code. You can install it on macOS, Linux, and Windows using any of the methods below. Choose the approach that best fits your environment — whether you are setting up a dev machine, provisioning a CI pipeline, or deploying to a Docker container.
+        FETCHIT is distributed as a standalone binary, an npm package, and source code. You can install it on macOS, Linux, and Windows using any of the methods below. Choose the approach that best fits your environment — whether you are setting up a dev machine, provisioning a CI pipeline, or deploying to a Docker container.
       </P>
 
       <Table
@@ -275,7 +275,7 @@ Expand-Archive -Path fetchit.zip -DestinationPath "$env:LOCALAPPDATA\fetchit"`}<
       </P>
 
       <H3>Test a real download</H3>
-      <Pre>{`fetchit download "https://www.youtube.com/watch?v=dQw4w9WgXcQ" -o /dev/null --format bestaudio`}</Pre>
+      <Pre>{`fetchit --best "https://www.youtube.com/watch?v=dQw4w9WgXcQ" -o /dev/null`}</Pre>
       <P>
         Downloads a short audio stream to <Code>/dev/null</Code> (or <Code>nul</Code> on Windows) to validate the full pipeline — engine invocation, streaming, and output. If this succeeds, fetchit is fully operational.
       </P>

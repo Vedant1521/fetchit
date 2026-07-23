@@ -1,6 +1,6 @@
 {
   "name": "@vedant1521/fetchit",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "grab any video from YouTube, X, Instagram, Threads & 2000+ sites — right from your terminal. paste. fetch. done.",
   "type": "module",
   "bin": {

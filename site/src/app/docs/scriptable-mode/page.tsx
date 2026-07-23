@@ -44,7 +44,7 @@ export default function ScriptableMode() {
         headers={["Position", "Argument", "Required", "Description"]}
         rows={[
           ["1", "URL", "Yes (unless --help)", "The media URL to download. Supports all sites that yt-dlp handles: YouTube, Twitch, Twitter/X, Instagram, TikTok, Facebook, Vimeo, Reddit, SoundCloud, and thousands more."],
-          ["2", "Quality", "No", "A specific quality string like <Code>1080p</Code>, <Code>720p</Code>, <Code>480p</Code>, <Code>360p</Code>, <Code>mp3</Code>, <Code>best</Code>, or a format ID. Overrides <Code>--best</Code> and <Code>--mp3</Code> if both are present."],
+          ["2", "Quality", "No", "A specific quality string like <Code>1080p</Code>, <Code>720p</Code>, <Code>480p</Code>, <Code>360p</Code>, <Code>mp3</Code>, or <Code>best</Code>. Overrides <Code>--best</Code> and <Code>--mp3</Code> if both are present."],
         ]}
       />
 
@@ -63,9 +63,6 @@ export default function ScriptableMode() {
           ["--cookies-from-browser", "", "Extract cookies from a browser profile for authenticated downloads. Supported values: <Code>chrome</Code>, <Code>firefox</Code>, <Code>brave</Code>, <Code>edge</Code>, <Code>chromium</Code>, <Code>opera</Code>, <Code>vivaldi</Code>. Useful for downloading age-restricted or member-only content."],
           ["--help", "", "Print the full help menu and exit. Lists all flags with descriptions. Does not require a URL."],
           ["--version", "", "Print the installed fetchit version number and exit. Useful for verifying installation and reporting bugs."],
-          ["--log-level", "", "Set log verbosity: <Code>debug</Code>, <Code>info</Code>, <Code>warn</Code>, <Code>error</Code>. Debug mode outputs the raw yt-dlp JSON and FFmpeg commands."],
-          ["--format", "", "Pre-select a format by ID (e.g. <Code>--format 137+140</Code>). Skips the format picker entirely. Advanced users only."],
-          ["--windowed", "", "Force windowed rendering mode. Disables full-screen and mouse capture. Useful in tmux splits or when running inside an IDE terminal panel."],
         ]}
       />
 
@@ -118,13 +115,6 @@ fetchit --version`}</Pre>
       <P>
         When you pass <Code>mp3</Code> as the quality argument or use <Code>--mp3</Code>, fetchit downloads the best available audio stream (typically Opus at 160 kbps or M4A at 128 kbps) and transcodes it to MP3 at 192 kbps CBR using the bundled FFmpeg. The transcode preserves as much quality as possible from the source; if the source is already MP3 at a lower bitrate, no upscaling is performed.
       </P>
-
-      <H3>Format IDs (advanced)</H3>
-      <P>
-        If you know the exact yt-dlp format IDs, you can pass them directly. Use the interactive mode or <Code>--log-level debug</Code> to discover format IDs for a given URL.
-      </P>
-      <Pre>{`fetchit https://youtu.be/dQw4w9WgXcQ 137+140   # 1080p video + AAC audio
-fetchit https://youtu.be/dQw4w9WgXcQ 247+251   # 720p VP9 + Opus audio`}</Pre>
 
       <H2>Output path templates</H2>
       <P>
@@ -859,7 +849,7 @@ FETCHIT_CONCURRENCY=2`}</Pre>
         rows={[
           ["<Code>--best</Code> and <Code>--mp3</Code> together", "can't be combined — pick one", "These flags conflict. <Code>--best</Code> downloads video+audio; <Code>--mp3</Code> downloads audio only and transcodes to MP3. They cannot both be active."],
           ["<Code>--best</Code> or <Code>--mp3</Code> without URL", "scriptable mode needs a url", "All scriptable-mode flags require a URL. Without a URL, fetchit would start interactive mode."],
-          ["Unknown quality string", 'unknown quality "..."', "The quality positional argument does not match any known resolution, format ID, or shorthand. Valid values: <Code>2160p</Code>, <Code>1440p</Code>, <Code>1080p</Code>, <Code>720p</Code>, <Code>480p</Code>, <Code>360p</Code>, <Code>240p</Code>, <Code>144p</Code>, <Code>best</Code>, <Code>mp3</Code>, or a yt-dlp format ID (e.g. <Code>137+140</Code>)."],
+          ["Unknown quality string", 'unknown quality "..."', "The quality positional argument does not match any known resolution or shorthand. Valid values: <Code>2160p</Code>, <Code>1440p</Code>, <Code>1080p</Code>, <Code>720p</Code>, <Code>480p</Code>, <Code>360p</Code>, <Code>240p</Code>, <Code>144p</Code>, <Code>best</Code>, or <Code>mp3</Code>."],
           ["More than 2 positional arguments", "expected a url and optional quality", "fetchit accepts at most two positional arguments: the URL (required) and an optional quality string. Extra positional arguments are rejected."],
           ["Invalid URL format", "could not parse url", "The URL does not appear to be valid. Ensure it starts with <Code>http://</Code> or <Code>https://</Code> and points to a supported site."],
           ["<Code>--from</Code> without <Code>--to</Code> after it", "clipping requires --to with --from", "<Code>--from</Code> can be used alone (downloads from start time to end of video). If <Code>--to</Code> appears before <Code>--from</Code>, the argument parser rejects it."],
@@ -902,7 +892,7 @@ done`}</Pre>
         <Li><strong>Use absolute paths in cron/systemd/launchd.</strong> Relative paths depend on the working directory, which may not be what you expect.</Li>
         <Li><strong>Set a <Code>PATH</Code> in cron.</strong> Cron runs with a minimal environment. Add <Code>PATH=/usr/local/bin:/usr/bin:/bin</Code> to your crontab.</Li>
         <Li><strong>Use <Code>2{'>'}/dev/null</Code> to capture only the file path.</strong> Without this, stderr status lines intermix with your captured output.</Li>
-        <Li><strong>Test with <Code>--log-level debug</Code> first.</strong> When building a script, run the fetchit command manually with debug logging to see exactly what yt-dlp returns and how fetchit handles it.</Li>
+        <Li><strong>Test with a single URL first.</strong> When building a script, run the fetchit command manually on one URL to verify the output before scaling up.</Li>
         <Li><strong>Resume interrupted downloads.</strong> Re-running the same fetchit command on a partially downloaded file resumes where it left off (yt-dlp handles partial file detection automatically).</Li>
       </Ul>
 
