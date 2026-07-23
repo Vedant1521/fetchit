@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { Prose, H1, H2, H3, H4, P, Code, Pre, Ul, Ol, Li, Table, Note, Link, Blockquote } from "@/components/prose"
+import { MultiPlatformCodeTabs } from "@/components/multi-platform-code-tabs"
 
 export const metadata: Metadata = { title: "Getting Started" }
 
@@ -74,13 +75,10 @@ export default function GettingStarted() {
 
       <H3>Quick install (recommended)</H3>
       <P>
-        This method downloads a standalone binary and adds it to your PATH. No Node.js, no Python,
-        no package manager required.
+        This method downloads a standalone binary and adds it to your PATH. Toggle between platforms or package managers below:
       </P>
-      <H4>macOS / Linux</H4>
-      <Pre>{`curl -fsSL https://fetchit-cli.vercel.app/install.sh | sh`}</Pre>
-      <H4>Windows (PowerShell)</H4>
-      <Pre>{`powershell -c "irm https://fetchit-cli.vercel.app/install.ps1 | iex"`}</Pre>
+
+      <MultiPlatformCodeTabs title="Installing fetchit" />
       <P>
         The installer places the <Code>fetchit</Code> binary in <Code>~/.fetchit/bin/</Code> and appends this
         directory to your shell configuration file (<Code>.zshrc</Code>, <Code>.bashrc</Code>, or PowerShell profile).

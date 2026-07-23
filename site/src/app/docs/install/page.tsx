@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { Prose, H1, H2, H3, H4, P, Code, Pre, Ul, Ol, Li, Table, Note, Link, Blockquote } from "@/components/prose"
+import { MultiPlatformCodeTabs } from "@/components/multi-platform-code-tabs"
 
 export const metadata: Metadata = { title: "Install Guide" }
 
@@ -40,14 +41,12 @@ export default function Install() {
         The recommended way to install fetchit for most users. The installer auto-detects your platform, downloads the correct binary, sets up PATH, and pre-fetches the yt-dlp engine — all in a single command.
       </P>
 
-      <H3>macOS / Linux</H3>
-      <Pre>{`curl -fsSL https://fetchit-cli.vercel.app/install.sh | sh`}</Pre>
+      <H3>Multi-Platform Installation</H3>
       <P>
-        This pipes the installer shell script directly into <Code>sh</Code>. The <Code>-fsSL</Code> flags make <Code>curl</Code> fail silently on server errors, follow redirects, and show no progress bar — ideal for scripts.
+        Select your operating system or package manager below to get the recommended one-line installation command:
       </P>
 
-      <H3>Windows (PowerShell)</H3>
-      <Pre>{`powershell -c "irm https://fetchit-cli.vercel.app/install.ps1 | iex"`}</Pre>
+      <MultiPlatformCodeTabs title="Install fetchit" />
       <P>
         The PowerShell variant uses <Code>Invoke-RestMethod</Code> (<Code>irm</Code>) to download the installer script and <Code>Invoke-Expression</Code> (<Code>iex</Code>) to execute it in one pipeline.
       </P>

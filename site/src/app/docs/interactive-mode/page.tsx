@@ -1,5 +1,7 @@
 import type { Metadata } from "next"
-import { Prose, H1, H2, H3, H4, P, Code, Pre, Ul, Ol, Li, Table, Note, Link, Blockquote } from "@/components/prose"
+import { Prose, H1, H2, H3, H4, P, Code, Kbd, Pre, Ul, Ol, Li, Table, Note, Link, Blockquote } from "@/components/prose"
+import { InteractiveTerminal } from "@/components/interactive-terminal"
+
 
 export const metadata: Metadata = { title: "Interactive Mode" }
 
@@ -11,6 +13,10 @@ export default function InteractiveMode() {
         fetchit's interactive mode is a full-screen terminal interface for downloading media from YouTube, Twitch, and hundreds of other sites. It guides you through every step — from pasting a URL to choosing the right format and watching the download complete in real time. This guide covers every screen, key, and feature in detail.
       </P>
 
+      <div className="my-8">
+        <InteractiveTerminal />
+      </div>
+
       <H2>Launching fetchit</H2>
       <P>
         You start the interactive interface by running the <Code>fetchit</Code> command with no arguments, or by passing a URL directly.
@@ -19,7 +25,7 @@ export default function InteractiveMode() {
       <H3>Without a URL</H3>
       <Pre>{`fetchit`}</Pre>
       <P>
-        When you run <Code>fetchit</Code> without any arguments, it opens directly to the <strong>Input screen</strong>. A text field at the top of the terminal awaits a URL. If fetchit detects a valid media link on your clipboard, it shows a hint suggesting you press <Code>[Tab]</Code> to paste it. This is the most common way to launch the tool.
+        When you run <Code>fetchit</Code> without any arguments, it opens directly to the <strong>Input screen</strong>. A text field at the top of the terminal awaits a URL. If fetchit detects a valid media link on your clipboard, it shows a hint suggesting you press <Kbd>Tab</Kbd> to paste it. This is the most common way to launch the tool.
       </P>
 
       <H3>With a URL</H3>

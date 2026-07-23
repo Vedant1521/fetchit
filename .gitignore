@@ -1,8 +1,77 @@
+# ==========================================
+# Secrets, Credentials & Environment Files
+# ==========================================
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+*.asc
+id_rsa*
+id_ed25519*
+
+# ==========================================
+# Dependencies & Build Artifacts
+# ==========================================
 node_modules/
 dist/
-*.log
-.DS_Store
+build/
+.next/
+out/
+coverage/
+.pnp
+.pnp.*
+.turbo/
+.vercel/
+.serverless/
+*.tsbuildinfo
+
+# ==========================================
+# Agent Skills, AI Logs & Temporary Data
+# ==========================================
+.skills/
+skills/
+.agents/
+skills-lock.json
 .claude/
-e2e-temp.ts
+.gemini/
 _chat-history/
 INSTALLER-PLAN.md
+e2e-temp.ts
+
+# ==========================================
+# Logs & System Caches
+# ==========================================
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ==========================================
+# IDEs, Editors & OS Files
+# ==========================================
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# ==========================================
+# Executable Binaries & Archives
+# ==========================================
+*.exe
+*.dmg
+*.deb
+*.rpm
+*.tar.gz
+*.zip

@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { Prose, H1, H2, H3, H4, P, Code, Pre, Ul, Ol, Li, Table, Note, Link, Blockquote } from "@/components/prose"
+import { CommandBuilder } from "@/components/command-builder"
 
 export const metadata: Metadata = { title: "CLI Reference" }
 
@@ -14,7 +15,13 @@ export default function CliReference() {
         integrating fetchit into a pipeline, this page is the canonical source of truth.
       </P>
 
-      <H2>Usage</H2>
+      <H2>Usage & Interactive Command Builder</H2>
+      <P>Use the visual command builder below to generate custom CLI commands for your workflow:</P>
+
+      <div className="my-6">
+        <CommandBuilder />
+      </div>
+
       <P>The basic invocation form is:</P>
       <Pre>{`fetchit [url] [quality] [options]`}</Pre>
       <P>
