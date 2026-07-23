@@ -4,25 +4,38 @@ import { useState } from "react"
 import { toast } from "@/components/ui/sonner-toast"
 
 export async function safeCopyToClipboard(text: string): Promise<boolean> {
-  if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
-    try {
+  let copied = false
+
+  // Modern async clipboard API check
+  try {
+    if (
+      typeof navigator !== "undefined" &&
+      navigator.clipboard &&
+      typeof navigator.clipboard.writeText === "function"
+    ) {
       await navigator.clipboard.writeText(text)
-      return true
-    } catch {
-      // Fallback below
+      copied = true
     }
+  } catch {
+    copied = false
   }
+
+  if (copied) return true
+
+  // Legacy / HTTP local IP testing fallback for mobile browsers
   try {
     const textarea = document.createElement("textarea")
     textarea.value = text
     textarea.style.position = "fixed"
-    textarea.style.opacity = "0"
+    textarea.style.left = "-9999px"
+    textarea.style.top = "-9999px"
+    textarea.setAttribute("readonly", "")
     document.body.appendChild(textarea)
-    textarea.focus()
     textarea.select()
-    const successful = document.execCommand("copy")
+    textarea.setSelectionRange(0, 99999) // iOS mobile Safari support
+    copied = document.execCommand("copy")
     document.body.removeChild(textarea)
-    return successful
+    return copied
   } catch {
     return false
   }
