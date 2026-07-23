@@ -192,17 +192,18 @@ export function MultiPlatformCodeTabs({
   }
 
   return (
-    <div className={`my-5 overflow-hidden rounded-xl border border-border bg-[#09090b] dark:bg-[#070709] ring-1 ring-white/5 shadow-2xl transition-all duration-200 ${className}`}>
+    <div className={`my-4 sm:my-5 overflow-hidden rounded-xl border border-border bg-[#09090b] dark:bg-[#070709] ring-1 ring-white/5 shadow-2xl transition-all duration-200 ${className}`}>
       {/* Minimalist Tab Header with Emil Kowalski Micro-Transitions */}
-      <div className="flex items-center justify-between border-b border-border/80 bg-[#121215]/80 backdrop-blur-md px-2.5 py-1.5 overflow-x-auto">
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+      <div className="flex items-center justify-between border-b border-border/80 bg-[#121215]/80 backdrop-blur-md px-2 sm:px-2.5 py-1.5 overflow-x-auto gap-2">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
           {tabs.map((tab) => {
             const isActive = tab.id === activeTabId
             return (
               <button
                 key={tab.id}
                 onClick={() => handleTabSelect(tab.id)}
-                className={`relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono rounded-md transition-all duration-200 shrink-0 cursor-pointer select-none active:scale-[0.97] ${
+                suppressHydrationWarning
+                className={`relative flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-mono rounded-md transition-all duration-200 shrink-0 cursor-pointer select-none active:scale-[0.97] ${
                   isActive
                     ? "bg-background text-foreground font-medium shadow-sm border border-border/90 text-emerald-400 dark:text-emerald-400"
                     : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
@@ -218,9 +219,10 @@ export function MultiPlatformCodeTabs({
           })}
         </div>
 
-        <div className="pl-2 shrink-0 flex items-center gap-1.5">
+        <div className="pl-1 shrink-0 flex items-center gap-1 sm:gap-1.5">
           <button
             onClick={handleTestInTerminal}
+            suppressHydrationWarning
             className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono text-muted-foreground hover:text-emerald-400 hover:bg-emerald-500/10 rounded transition-all duration-150 active:scale-[0.97] cursor-pointer"
             title="Test this command in interactive playground"
           >
@@ -232,8 +234,8 @@ export function MultiPlatformCodeTabs({
       </div>
 
       {/* Code Display Area */}
-      <div className="relative p-4 sm:p-5 font-mono text-sm leading-relaxed text-[#f1f5f9] overflow-x-auto bg-[#08080a] group">
-        <code className="whitespace-pre flex-1 select-all">{activeTab?.code}</code>
+      <div className="relative p-3.5 sm:p-5 font-mono text-xs sm:text-sm leading-relaxed text-[#f1f5f9] overflow-x-auto bg-[#08080a] group">
+        <code className="whitespace-pre flex-1 select-all break-all sm:break-normal">{activeTab?.code}</code>
       </div>
 
       {/* Optional Terminal Output Toggle */}
@@ -241,11 +243,12 @@ export function MultiPlatformCodeTabs({
         <div className="border-t border-border/60 bg-[#0d0d10]">
           <button
             onClick={() => setShowPreview(!showPreview)}
-            className="w-full flex items-center justify-between px-4 py-2 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors cursor-pointer select-none active:bg-white/[0.02]"
+            suppressHydrationWarning
+            className="w-full flex items-center justify-between px-3 sm:px-4 py-2 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors cursor-pointer select-none active:bg-white/[0.02]"
           >
-            <span className="flex items-center gap-2">
+            <span className="flex items-center gap-1.5 sm:gap-2">
               <Terminal className="size-3.5 text-emerald-400/80" />
-              <span>Terminal Output Preview</span>
+              <span className="text-[11px] sm:text-xs">Terminal Output Preview</span>
             </span>
             <span className="flex items-center gap-1 text-[11px]">
               <span>{showPreview ? "Hide" : "Show"}</span>
@@ -254,11 +257,11 @@ export function MultiPlatformCodeTabs({
           </button>
 
           {showPreview && (
-            <div className="px-4 py-3 font-mono text-xs text-[#a1a1aa] bg-black/60 border-t border-white/5 space-y-1 overflow-x-auto leading-relaxed">
+            <div className="px-3 sm:px-4 py-2.5 sm:py-3 font-mono text-xs text-[#a1a1aa] bg-black/60 border-t border-white/5 space-y-1 overflow-x-auto leading-relaxed">
               {activeTab.outputPreview.map((outLine, idx) => (
                 <div key={idx} className="flex items-start gap-2">
                   <span className="text-muted-foreground/30 select-none">›</span>
-                  <span>{outLine}</span>
+                  <span className="break-all sm:break-normal">{outLine}</span>
                 </div>
               ))}
             </div>

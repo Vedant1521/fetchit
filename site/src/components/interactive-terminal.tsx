@@ -160,7 +160,7 @@ export function InteractiveTerminal({ initialCommand = "", className = "" }: Int
     return () => clearInterval(interval)
   }, [step])
 
-  // Trigger toast side-effect when download completes (React 19 lifecycle safety)
+  // Trigger toast side-effect when download completes
   useEffect(() => {
     if (step === "COMPLETE") {
       toast.success("Download Complete!", {
@@ -304,24 +304,25 @@ export function InteractiveTerminal({ initialCommand = "", className = "" }: Int
   }
 
   return (
-    <div className={`rounded-2xl border border-border bg-[#09090b] dark:bg-[#070709] overflow-hidden shadow-xl ring-1 ring-white/5 ${className}`}>
+    <div className={`rounded-xl sm:rounded-2xl border border-border bg-[#09090b] dark:bg-[#070709] overflow-hidden shadow-xl ring-1 ring-white/5 ${className}`}>
       {/* Top Header Bar */}
-      <div className="flex items-center justify-between border-b border-border/80 bg-[#121215]/90 backdrop-blur-md px-4 py-2.5">
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-1.5 pr-1">
-            <span className="size-2.5 rounded-full bg-foreground/20" />
-            <span className="size-2.5 rounded-full bg-foreground/20" />
-            <span className="size-2.5 rounded-full bg-foreground/20" />
+      <div className="flex items-center justify-between border-b border-border/80 bg-[#121215]/90 backdrop-blur-md px-3 sm:px-4 py-2 sm:py-2.5">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 pr-1">
+            <span className="size-2 sm:size-2.5 rounded-full bg-foreground/20" />
+            <span className="size-2 sm:size-2.5 rounded-full bg-foreground/20" />
+            <span className="size-2 sm:size-2.5 rounded-full bg-foreground/20" />
           </div>
-          <span className="text-xs font-mono text-foreground font-semibold tracking-tight flex items-center gap-1.5 border-l border-border/60 pl-3">
-            <TerminalIcon className="size-3.5 text-emerald-400" /> fetchit-terminal
+          <span className="text-[11px] sm:text-xs font-mono text-foreground font-semibold tracking-tight flex items-center gap-1.5 border-l border-border/60 pl-2 sm:pl-3">
+            <TerminalIcon className="size-3.5 text-emerald-400 shrink-0" /> fetchit-terminal
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={resetTerminal}
-            className="flex items-center gap-1.5 text-xs font-mono font-medium tracking-tight text-muted-foreground hover:text-foreground transition-colors duration-150 px-2.5 py-1 rounded-md hover:bg-white/5 active:scale-[0.97] cursor-pointer"
+            suppressHydrationWarning
+            className="flex items-center gap-1 text-[11px] sm:text-xs font-mono font-medium tracking-tight text-muted-foreground hover:text-foreground transition-colors duration-150 px-2 py-1 rounded-md hover:bg-white/5 active:scale-[0.97] cursor-pointer"
             title="Reset Terminal Session"
           >
             <RefreshCw className={`size-3 transition-transform duration-300 ${isSpinning ? "rotate-180 text-emerald-400" : ""}`} />
@@ -331,23 +332,26 @@ export function InteractiveTerminal({ initialCommand = "", className = "" }: Int
       </div>
 
       {/* Preset Action Chips */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-border/40 bg-[#0d0d10] overflow-x-auto no-scrollbar text-xs font-mono">
-        <span className="text-muted-foreground/60 text-[10px] uppercase tracking-wider shrink-0 font-semibold">PRESETS:</span>
+      <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 border-b border-border/40 bg-[#0d0d10] overflow-x-auto no-scrollbar text-xs font-mono">
+        <span className="text-muted-foreground/60 text-[10px] uppercase tracking-wider shrink-0 font-semibold hidden xs:inline">PRESETS:</span>
         <button
           onClick={() => runPreset("fetchit https://youtu.be/dQw4w9WgXcQ")}
-          className="px-3 py-1 rounded-full bg-secondary hover:bg-secondary/80 text-foreground font-mono text-xs tracking-tight transition-all duration-150 shrink-0 cursor-pointer active:scale-[0.96] border border-border/40"
+          suppressHydrationWarning
+          className="px-2.5 py-1 rounded-full bg-secondary hover:bg-secondary/80 text-foreground font-mono text-[11px] sm:text-xs tracking-tight transition-all duration-150 shrink-0 cursor-pointer active:scale-[0.96] border border-border/40"
         >
           Interactive Picker
         </button>
         <button
           onClick={() => runPreset("fetchit https://youtu.be/dQw4w9WgXcQ --best")}
-          className="px-3 py-1 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-mono text-xs tracking-tight transition-all duration-150 shrink-0 cursor-pointer active:scale-[0.96] border border-emerald-500/20"
+          suppressHydrationWarning
+          className="px-2.5 py-1 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-mono text-[11px] sm:text-xs tracking-tight transition-all duration-150 shrink-0 cursor-pointer active:scale-[0.96] border border-emerald-500/20"
         >
           --best (Auto)
         </button>
         <button
           onClick={() => runPreset("fetchit https://youtu.be/dQw4w9WgXcQ --mp3")}
-          className="px-3 py-1 rounded-full bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 font-mono text-xs tracking-tight transition-all duration-150 shrink-0 cursor-pointer active:scale-[0.96] border border-purple-500/20"
+          suppressHydrationWarning
+          className="px-2.5 py-1 rounded-full bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 font-mono text-[11px] sm:text-xs tracking-tight transition-all duration-150 shrink-0 cursor-pointer active:scale-[0.96] border border-purple-500/20"
         >
           --mp3 (Audio)
         </button>
@@ -359,31 +363,34 @@ export function InteractiveTerminal({ initialCommand = "", className = "" }: Int
         onKeyDown={handleKeyDown}
         tabIndex={0}
         onClick={() => inputRef.current?.focus()}
-        className="p-5 font-mono text-sm leading-relaxed text-[#f1f5f9] h-[310px] overflow-y-auto outline-none select-none bg-[#070709]"
+        className="p-3.5 sm:p-5 font-mono text-xs sm:text-sm leading-relaxed text-[#f1f5f9] h-[280px] sm:h-[310px] overflow-y-auto outline-none select-none bg-[#070709]"
       >
         {/* Previous Executed Command Logs */}
         {logs.map((log, i) => (
-          <div key={i} className="text-muted-foreground/70 mb-1.5 font-mono text-xs">
+          <div key={i} className="text-muted-foreground/70 mb-1.5 font-mono text-xs break-all">
             {log}
           </div>
         ))}
 
         {/* Input prompt line when IDLE or COMPLETE */}
         {(step === "IDLE" || step === "COMPLETE") && (
-          <div className="flex items-center gap-2 text-foreground mb-3 bg-white/[0.02] p-2 rounded-lg border border-white/5">
-            <span className="text-emerald-400 font-semibold shrink-0">~/fetchit $</span>
-            <input
-              ref={inputRef}
-              type="text"
-              value={commandInput}
-              onChange={(e) => setCommandInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="flex-1 bg-transparent border-none outline-none font-mono text-sm text-foreground focus:ring-0 p-0"
-              placeholder="Type fetchit <URL>..."
-            />
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 text-foreground mb-3 bg-white/[0.02] p-2 rounded-lg border border-white/5">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <span className="text-emerald-400 font-semibold shrink-0 text-xs">~/fetchit $</span>
+              <input
+                ref={inputRef}
+                type="text"
+                value={commandInput}
+                onChange={(e) => setCommandInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="flex-1 min-w-0 bg-transparent border-none outline-none font-mono text-xs sm:text-sm text-foreground focus:ring-0 p-0"
+                placeholder="Type fetchit <URL>..."
+              />
+            </div>
             <button
               onClick={() => executeCommand()}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono rounded-md bg-foreground text-background font-semibold hover:opacity-90 active:scale-[0.97] transition-all duration-150 shrink-0 cursor-pointer shadow-sm"
+              suppressHydrationWarning
+              className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-mono rounded-md bg-foreground text-background font-semibold hover:opacity-90 active:scale-[0.97] transition-all duration-150 shrink-0 cursor-pointer shadow-sm"
             >
               <Play className="size-3 fill-current" />
               <span>Run</span>
@@ -396,9 +403,9 @@ export function InteractiveTerminal({ initialCommand = "", className = "" }: Int
           <div className="space-y-1.5 text-cyan-300 py-2 animate-in fade-in duration-150">
             <div className="flex items-center gap-2">
               <span className="animate-spin text-emerald-400 font-bold">⠋</span>
-              <span className="font-semibold">Probing {activeMediaInfo.title}...</span>
+              <span className="font-semibold text-xs sm:text-sm truncate">Probing {activeMediaInfo.title}...</span>
             </div>
-            <div className="text-xs text-muted-foreground pl-6">
+            <div className="text-[11px] sm:text-xs text-muted-foreground pl-5 sm:pl-6">
               Retrieving format manifest, stream info, and duration...
             </div>
           </div>
@@ -407,12 +414,12 @@ export function InteractiveTerminal({ initialCommand = "", className = "" }: Int
         {/* INTERACTIVE PICKER STATE */}
         {step === "PICKER" && (
           <div className="space-y-3 animate-in fade-in zoom-in-95 duration-150">
-            <div className="text-xs text-emerald-400 font-semibold flex items-center justify-between border-b border-border/40 pb-2">
-              <span className="flex items-center gap-1.5">
+            <div className="text-xs text-emerald-400 font-semibold flex items-center justify-between border-b border-border/40 pb-2 flex-wrap gap-1">
+              <span className="flex items-center gap-1">
                 <span>Select Format</span>
-                <span className="text-muted-foreground/60 font-normal">(Use ↑/↓ arrows or click):</span>
+                <span className="text-muted-foreground/60 font-normal hidden sm:inline">(Use ↑/↓ or click):</span>
               </span>
-              <span className="text-muted-foreground font-mono text-[11px] truncate max-w-[220px]">
+              <span className="text-muted-foreground font-mono text-[10px] sm:text-[11px] truncate max-w-[180px] sm:max-w-[220px]">
                 {activeMediaInfo.title}
               </span>
             </div>
@@ -428,25 +435,25 @@ export function InteractiveTerminal({ initialCommand = "", className = "" }: Int
                       setSelectedFormat(fmt)
                       setStep("DOWNLOADING")
                     }}
-                    className={`flex items-center justify-between px-3.5 py-2.5 rounded-lg cursor-pointer transition-all duration-150 border ${
+                    className={`flex flex-col sm:flex-row sm:items-center justify-between px-3 py-2 sm:py-2.5 rounded-lg cursor-pointer transition-all duration-150 border gap-1 sm:gap-2 ${
                       isSelected
-                        ? "bg-foreground text-background border-foreground font-semibold shadow-md translate-x-1"
+                        ? "bg-foreground text-background border-foreground font-semibold shadow-md translate-x-0.5 sm:translate-x-1"
                         : "bg-secondary/40 text-foreground/80 hover:bg-secondary/80 border-border/50 hover:border-border"
                     }`}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3">
                       <span className={`text-xs ${isSelected ? "text-background" : "text-emerald-400 font-bold"}`}>
                         {isSelected ? "❯" : " "}
                       </span>
-                      <span>{fmt.label}</span>
+                      <span className="text-xs">{fmt.label}</span>
                     </div>
 
-                    <div className="flex items-center gap-3 text-xs font-mono">
+                    <div className="flex items-center justify-between sm:justify-end gap-3 text-[11px] sm:text-xs font-mono pl-4 sm:pl-0">
                       <span className={isSelected ? "text-background/80" : "text-muted-foreground"}>
                         {fmt.res}
                       </span>
                       <span
-                        className={`px-2 py-0.5 rounded text-[11px] font-mono ${
+                        className={`px-1.5 py-0.5 rounded text-[10px] sm:text-[11px] font-mono ${
                           isSelected ? "bg-background/20 text-background" : "bg-secondary text-foreground border border-border/40"
                         }`}
                       >
@@ -458,11 +465,10 @@ export function InteractiveTerminal({ initialCommand = "", className = "" }: Int
               })}
             </div>
 
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/30">
+            <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-muted-foreground pt-1 border-t border-border/30">
               <span className="flex items-center gap-1">
-                <span>Press</span>
-                <kbd className="px-1.5 py-0.5 rounded bg-secondary border border-border text-foreground font-mono">Enter</kbd>
-                <span>to confirm selection</span>
+                <span>Tap or press</span>
+                <kbd className="px-1 py-0.5 rounded bg-secondary border border-border text-foreground font-mono text-[10px]">Enter</kbd>
               </span>
               <span className="text-emerald-400 font-mono">Interactive TUI</span>
             </div>
@@ -471,13 +477,13 @@ export function InteractiveTerminal({ initialCommand = "", className = "" }: Int
 
         {/* DOWNLOADING STATE */}
         {step === "DOWNLOADING" && (
-          <div className="space-y-2.5 py-3 animate-in fade-in duration-150">
-            <div className="flex items-center justify-between text-xs font-mono">
-              <span className="text-foreground font-semibold flex items-center gap-2 truncate pr-2">
-                <Sparkles className="size-3.5 text-amber-400 animate-pulse shrink-0" />
-                <span className="truncate">Downloading {activeMediaInfo.title} ({selectedFormat.label})...</span>
+          <div className="space-y-2 py-2 sm:py-3 animate-in fade-in duration-150">
+            <div className="flex items-center justify-between text-xs font-mono flex-wrap gap-1">
+              <span className="text-foreground font-semibold flex items-center gap-1.5 truncate max-w-[220px] sm:max-w-[360px]">
+                <Sparkles className="size-3 sm:size-3.5 text-amber-400 animate-pulse shrink-0" />
+                <span className="truncate">Downloading {activeMediaInfo.title}...</span>
               </span>
-              <span className="text-emerald-400 font-bold shrink-0">{progress}%</span>
+              <span className="text-emerald-400 font-bold text-xs">{progress}%</span>
             </div>
 
             {/* Progress Bar Container */}
@@ -488,7 +494,7 @@ export function InteractiveTerminal({ initialCommand = "", className = "" }: Int
               />
             </div>
 
-            <div className="flex items-center justify-between text-xs text-muted-foreground font-mono pt-1">
+            <div className="flex items-center justify-between text-[11px] sm:text-xs text-muted-foreground font-mono pt-1">
               <span>Speed: {speed} MB/s</span>
               <span>Size: {selectedFormat.size}</span>
               <span>ETA: {Math.max(0, Math.ceil((100 - progress) / 35))}s</span>
@@ -498,12 +504,12 @@ export function InteractiveTerminal({ initialCommand = "", className = "" }: Int
 
         {/* COMPLETE STATE */}
         {step === "COMPLETE" && (
-          <div className="space-y-2 py-3 border-t border-emerald-500/30 bg-emerald-500/5 rounded-lg px-4 my-2 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm">
-              <Check className="size-4 stroke-[3]" />
+          <div className="space-y-2 py-2.5 sm:py-3 border-t border-emerald-500/30 bg-emerald-500/5 rounded-lg px-3 sm:px-4 my-2 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-2 text-emerald-400 font-semibold text-xs sm:text-sm">
+              <Check className="size-3.5 sm:size-4 stroke-[3]" />
               <span>Download Complete!</span>
             </div>
-            <div className="text-xs text-foreground/90 font-mono pl-6">
+            <div className="text-[11px] sm:text-xs text-foreground/90 font-mono pl-5 sm:pl-6 break-all">
               Saved to: <code className="text-emerald-300 font-bold">~/Downloads/{activeMediaInfo.filename}.{selectedFormat.id === "mp3" ? "mp3" : "mp4"}</code>
             </div>
           </div>
@@ -511,10 +517,10 @@ export function InteractiveTerminal({ initialCommand = "", className = "" }: Int
       </div>
 
       {/* Footer Instructions */}
-      <div className="border-t border-border bg-[#0b0b0e] px-4 py-2 text-xs font-mono text-muted-foreground flex items-center justify-between">
+      <div className="border-t border-border bg-[#0b0b0e] px-3 sm:px-4 py-2 text-[11px] sm:text-xs font-mono text-muted-foreground flex items-center justify-between">
         <span>Interactive CLI Simulation</span>
-        <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
-          <CornerDownLeft className="size-3" /> Press Enter to test
+        <span className="flex items-center gap-1 text-[10px] sm:text-[11px] text-emerald-400 font-medium">
+          <CornerDownLeft className="size-3 hidden xs:inline" /> Press Enter to test
         </span>
       </div>
     </div>
