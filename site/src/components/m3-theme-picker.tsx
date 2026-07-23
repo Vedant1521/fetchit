@@ -17,6 +17,16 @@ export interface M3Theme {
 
 export const M3_THEMES: M3Theme[] = [
   {
+    id: "emerald",
+    name: "Muted Forest",
+    seedHex: "#10b981",
+    primary: "#10b981",
+    primaryContainer: "rgba(16, 185, 129, 0.12)",
+    onPrimaryContainer: "#34d399",
+    accentGlow: "rgba(16, 185, 129, 0.2)",
+    description: "Documentation default — refined dark forest emerald",
+  },
+  {
     id: "slate",
     name: "Monochrome Slate",
     seedHex: "#f8fafc",
@@ -24,7 +34,7 @@ export const M3_THEMES: M3Theme[] = [
     primaryContainer: "rgba(255, 255, 255, 0.08)",
     onPrimaryContainer: "#f1f5f9",
     accentGlow: "rgba(255, 255, 255, 0.12)",
-    description: "Documentation default — clean, high-legibility slate",
+    description: "Clean monochrome slate",
   },
   {
     id: "cobalt",
@@ -56,20 +66,10 @@ export const M3_THEMES: M3Theme[] = [
     accentGlow: "rgba(245, 158, 11, 0.25)",
     description: "Subtle warm gold accent",
   },
-  {
-    id: "emerald",
-    name: "Muted Forest",
-    seedHex: "#10b981",
-    primary: "#10b981",
-    primaryContainer: "rgba(16, 185, 129, 0.12)",
-    onPrimaryContainer: "#34d399",
-    accentGlow: "rgba(16, 185, 129, 0.2)",
-    description: "Refined dark forest accent",
-  },
 ]
 
 export function M3ThemePicker() {
-  const [activeThemeId, setActiveThemeId] = useState<string>("slate")
+  const [activeThemeId, setActiveThemeId] = useState<string>("emerald")
   const [isOpen, setIsOpen] = useState(false)
   const popoverRef = useRef<HTMLDivElement>(null)
 

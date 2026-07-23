@@ -25,11 +25,11 @@
   --ring: #fafafa;
   --radius: 0.5rem;
 
-  /* Material Design 3 HCT Seed Tokens (Default: Monochrome Slate) */
-  --m3-primary: #f8fafc;
-  --m3-primary-container: rgba(255, 255, 255, 0.08);
-  --m3-on-primary-container: #f1f5f9;
-  --m3-accent-glow: rgba(255, 255, 255, 0.12);
+  /* Material Design 3 HCT Seed Tokens (Default: Muted Forest Emerald) */
+  --m3-primary: #10b981;
+  --m3-primary-container: rgba(16, 185, 129, 0.12);
+  --m3-on-primary-container: #34d399;
+  --m3-accent-glow: rgba(16, 185, 129, 0.2);
 
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
@@ -102,7 +102,7 @@ body {
   width: 100%;
   max-width: 1200px;
   height: 600px;
-  background: radial-gradient(circle at 50% 10%, rgba(255, 255, 255, 0.04) 0%, rgba(120, 119, 198, 0.06) 35%, rgba(0, 0, 0, 0) 70%);
+  background: radial-gradient(circle at 50% 10%, rgba(16, 185, 129, 0.06) 0%, rgba(120, 119, 198, 0.04) 35%, rgba(0, 0, 0, 0) 70%);
   pointer-events: none;
   z-index: 0;
 }
