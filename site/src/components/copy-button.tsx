@@ -9,6 +9,13 @@ export function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={async () => {
+        try {
+          if (typeof navigator !== "undefined" && navigator.vibrate) {
+            navigator.vibrate(15)
+          }
+        } catch {
+          // Ignore if blocked by browser policy
+        }
         await navigator.clipboard.writeText(text)
         setCopied(true)
         toast.success("Copied to clipboard!", {
@@ -16,6 +23,7 @@ export function CopyButton({ text }: { text: string }) {
         })
         setTimeout(() => setCopied(false), 1500)
       }}
+      suppressHydrationWarning
       className="group inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-background active:scale-[0.92] shrink-0 transition-all duration-150 ease-out cursor-pointer"
       aria-label="Copy to clipboard"
     >
