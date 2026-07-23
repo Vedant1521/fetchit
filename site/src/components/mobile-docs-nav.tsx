@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { docsNavSections, getNavContext } from "@/lib/docs-nav"
-import { Menu, X, BookOpen, ChevronRight } from "lucide-react"
+import { Menu, X, BookOpen, ChevronRight, Sparkles } from "lucide-react"
 
 export function MobileDocsNav() {
   const pathname = usePathname()
@@ -36,36 +36,37 @@ export function MobileDocsNav() {
         <button
           onClick={() => setIsOpen(true)}
           suppressHydrationWarning
-          className="flex items-center gap-2 text-xs font-mono font-medium text-foreground bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-lg border border-white/10 transition-all active:scale-[0.97] cursor-pointer"
+          className="flex items-center gap-2 text-xs font-mono font-semibold text-foreground bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-lg border border-white/10 transition-all active:scale-[0.97] cursor-pointer"
         >
           <Menu className="size-3.5 text-emerald-400" />
           <span>Docs Menu</span>
         </button>
 
         {/* Current Path Indicator */}
-        <div className="flex items-center gap-1 text-xs text-muted-foreground font-mono truncate max-w-[200px]">
-          <BookOpen className="size-3 text-muted-foreground/60 shrink-0" />
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono truncate max-w-[210px]">
+          <BookOpen className="size-3 text-emerald-400/80 shrink-0" />
           <span className="truncate text-foreground font-semibold">
             {itemLabel || sectionTitle || "Overview"}
           </span>
         </div>
       </div>
 
-      {/* Slide-over Full-Screen Navigation Drawer */}
+      {/* Slide-over Full-Screen Navigation Overlay (Full top-0 coverage, zero overlap) */}
       {isOpen && (
-        <div className="fixed inset-0 top-14 z-50 bg-background/95 backdrop-blur-xl animate-in fade-in duration-150 flex flex-col">
-          {/* Drawer Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-[#101014]">
+        <div className="fixed inset-0 z-[100] bg-[#09090b] animate-in fade-in duration-150 flex flex-col">
+          {/* Overlay Header Bar */}
+          <div className="flex items-center justify-between px-4 py-3.5 border-b border-border bg-[#101014]">
             <div className="flex items-center gap-2 text-xs font-mono font-bold text-foreground tracking-wider uppercase">
-              <BookOpen className="size-4 text-emerald-400" />
-              <span>Documentation Navigation</span>
+              <Sparkles className="size-3.5 text-amber-400" />
+              <span>FETCHIT DOCUMENTATION</span>
             </div>
             <button
               onClick={() => setIsOpen(false)}
               suppressHydrationWarning
-              className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-xs font-mono font-semibold text-foreground hover:bg-white/20 transition-all cursor-pointer active:scale-[0.96]"
             >
-              <X className="size-5" />
+              <X className="size-4" />
+              <span>Close</span>
             </button>
           </div>
 
@@ -76,6 +77,7 @@ export function MobileDocsNav() {
                 {section.href ? (
                   <Link
                     href={section.href}
+                    onClick={() => setIsOpen(false)}
                     className="block text-xs font-mono font-bold tracking-wider uppercase text-emerald-400 hover:underline"
                   >
                     {section.title}
@@ -93,6 +95,7 @@ export function MobileDocsNav() {
                       <li key={item.href}>
                         <Link
                           href={item.href}
+                          onClick={() => setIsOpen(false)}
                           className={cn(
                             "flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-all font-sans",
                             isActive

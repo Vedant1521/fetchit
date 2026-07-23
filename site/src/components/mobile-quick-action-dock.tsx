@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Copy, Star, Check } from "lucide-react"
 import { toast } from "@/components/ui/sonner-toast"
+import { safeCopyToClipboard } from "@/components/copy-button"
 
 export function MobileQuickActionDock() {
   const [isVisible, setIsVisible] = useState(false)
@@ -29,7 +30,7 @@ export function MobileQuickActionDock() {
       // Ignore
     }
     const installCmd = "curl -fsSL https://fetchit-cli.vercel.app/install.sh | sh"
-    await navigator.clipboard.writeText(installCmd)
+    await safeCopyToClipboard(installCmd)
     setCopied(true)
     toast.success("Installer command copied!", {
       description: "Paste into your macOS or Linux terminal.",
