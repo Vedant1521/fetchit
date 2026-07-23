@@ -35,7 +35,7 @@ const DEFAULT_TABS: TabConfig[] = [
       "[fetchit] Detecting architecture... macOS (arm64)",
       "✔ Downloaded latest release tarball v0.5.1",
       "✔ Linked binary to ~/.fetchit/bin/fetchit",
-      "✨ Done! Run 'fetchit --help' to start.",
+      "✨ Done! Run 'fetchit <URL>' to start.",
     ],
   },
   {
@@ -48,7 +48,7 @@ const DEFAULT_TABS: TabConfig[] = [
       "[fetchit] Arch: Linux (x86_64)",
       "✔ Verified checksums & extracted binary",
       "✔ Installed executable to /usr/local/bin/fetchit",
-      "✨ Installed! Try: fetchit https://youtu.be/dQw4w9WgXcQ",
+      "✨ Installed! Try: fetchit <URL>",
     ],
   },
   {
@@ -79,7 +79,7 @@ const DEFAULT_TABS: TabConfig[] = [
     id: "npx",
     label: "npx",
     icon: "npx",
-    code: `npx @vedant1521/fetchit https://youtu.be/dQw4w9WgXcQ --best`,
+    code: `npx @vedant1521/fetchit <URL>`,
     description: "Execute directly without global install",
     outputPreview: [
       "✔ Probing media formats...",
